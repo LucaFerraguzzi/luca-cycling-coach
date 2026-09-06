@@ -192,33 +192,8 @@ st.markdown("""
 with st.sidebar:
 
     # LOGO / TITOLO
-    st.markdown(
-        """
-        <div style="
-            text-align:center;
-            padding:10px 0 20px 0;
-        ">
-            <div style="font-size:42px;">🚴</div>
-
-            <div style="
-                font-size:24px;
-                font-weight:700;
-                color:white !important;
-            ">
-                Luca Cycling Coach
-            </div>
-
-            <div style="
-                font-size:13px;
-                color:#9ca3af !important;
-                margin-top:4px;
-            ">
-                Personal Cycling Coach
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+   st.markdown("## 🚴 Luca Cycling Coach")
+st.caption("Personal Cycling Coach")
 
     st.markdown("---")
 
