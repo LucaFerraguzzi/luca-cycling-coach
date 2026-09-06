@@ -52,19 +52,32 @@ st.markdown(
         color: #111827 !important;
     }
 
-    p, span, label, div {
+    p, span, label {
         color: #111827;
     }
 
+    /* Pulsanti neri con testo bianco */
     .stButton > button {
-        color: white !important;
         background-color: #111827 !important;
+        color: white !important;
         border: none !important;
         border-radius: 8px !important;
     }
 
+    .stButton > button p,
+    .stButton > button span,
+    .stButton > button div {
+        color: white !important;
+    }
+
     .stButton > button:hover {
         background-color: #374151 !important;
+        color: white !important;
+    }
+
+    .stButton > button:hover p,
+    .stButton > button:hover span,
+    .stButton > button:hover div {
         color: white !important;
     }
 
