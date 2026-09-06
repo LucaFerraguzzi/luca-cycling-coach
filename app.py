@@ -192,10 +192,38 @@ st.markdown("""
 with st.sidebar:
 
     # LOGO / TITOLO
-   st.markdown("## 🚴 Luca Cycling Coach")
-st.caption("Personal Cycling Coach")
+    st.markdown("## 🚴 Luca Cycling Coach")
+    st.caption("Personal Cycling Coach")
 
     st.markdown("---")
+
+    # MENU
+    st.markdown(
+        """
+        <div style="
+            color:#9ca3af !important;
+            font-size:12px;
+            font-weight:600;
+            margin-bottom:8px;
+        ">
+            MENU
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    pagina = st.radio(
+        "Navigazione",
+        [
+            "🏠 Dashboard",
+            "📅 Calendario",
+            "🚴 Allenamenti",
+            "📊 Analisi",
+            "🧠 AI Coach",
+            "👤 Profilo"
+        ],
+        label_visibility="collapsed"
+    )
 
     # MENU
     st.markdown(
