@@ -40,28 +40,26 @@ st.markdown(
 """ <style>
 
 ```
-/* ======================================================
-   SFONDO GENERALE
-   ====================================================== */
-
 .stApp {
     background-color: #f7f8fa !important;
 }
 
-/* ======================================================
-   TESTO GENERALE - NERO
-   ====================================================== */
-
+/* TESTO PRINCIPALE */
 .main,
-.main *,
+.main p,
+.main span,
+.main label,
+.main li,
+.main td,
+.main th,
 .block-container,
-.block-container *,
-[data-testid="stAppViewContainer"],
-[data-testid="stAppViewContainer"] * {
+.block-container p,
+.block-container span,
+.block-container label,
+.block-container li {
     color: #111111 !important;
 }
 
-/* Titoli */
 h1,
 h2,
 h3,
@@ -71,42 +69,49 @@ h6 {
     color: #111111 !important;
 }
 
-/* Paragrafi */
-p,
-span,
-label,
-li,
-td,
-th,
-div {
-    color: #111111;
+/* MARKDOWN */
+[data-testid="stMarkdownContainer"],
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] span,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stMarkdownContainer"] strong {
+    color: #111111 !important;
 }
 
-/* ======================================================
+/* CAPTION */
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] * {
+    color: #444444 !important;
+}
+
+/* ========================================================
    SIDEBAR
-   ====================================================== */
+   ======================================================== */
 
 section[data-testid="stSidebar"] {
     background-color: #111827 !important;
 }
 
-section[data-testid="stSidebar"] * {
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] h4,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] div {
     color: #ffffff !important;
 }
 
+/* Input sidebar */
 section[data-testid="stSidebar"] input {
     color: #111111 !important;
     background-color: #ffffff !important;
-}
-
-section[data-testid="stSidebar"] textarea {
-    color: #111111 !important;
-    background-color: #ffffff !important;
+    -webkit-text-fill-color: #111111 !important;
 }
 
 section[data-testid="stSidebar"] [data-baseweb="select"] {
     background-color: #ffffff !important;
-    color: #111111 !important;
 }
 
 section[data-testid="stSidebar"] [data-baseweb="select"] * {
@@ -123,17 +128,14 @@ section[data-testid="stSidebar"] [role="option"] * {
 }
 
 /* Radio sidebar */
-section[data-testid="stSidebar"] [data-testid="stRadio"] label {
+section[data-testid="stSidebar"] [data-testid="stRadio"] label,
+section[data-testid="stSidebar"] [data-testid="stRadio"] label span {
     color: #ffffff !important;
 }
 
-section[data-testid="stSidebar"] [data-testid="stRadio"] label * {
-    color: #ffffff !important;
-}
-
-/* ======================================================
-   INPUT
-   ====================================================== */
+/* ========================================================
+   INPUT GENERALI
+   ======================================================== */
 
 input,
 textarea {
@@ -148,7 +150,6 @@ textarea::placeholder {
     -webkit-text-fill-color: #666666 !important;
 }
 
-/* Selectbox */
 [data-baseweb="select"] {
     background-color: #ffffff !important;
 }
@@ -157,9 +158,9 @@ textarea::placeholder {
     color: #111111 !important;
 }
 
-/* ======================================================
+/* ========================================================
    METRICHE
-   ====================================================== */
+   ======================================================== */
 
 [data-testid="stMetric"] {
     background-color: #ffffff !important;
@@ -184,9 +185,9 @@ textarea::placeholder {
     color: #111111 !important;
 }
 
-/* ======================================================
+/* ========================================================
    INFO / WARNING / SUCCESS / ERROR
-   ====================================================== */
+   ======================================================== */
 
 [data-testid="stAlert"] {
     color: #111111 !important;
@@ -200,9 +201,9 @@ textarea::placeholder {
     color: #111111 !important;
 }
 
-/* ======================================================
+/* ========================================================
    CONTAINER
-   ====================================================== */
+   ======================================================== */
 
 [data-testid="stVerticalBlockBorderWrapper"] {
     background-color: #ffffff !important;
@@ -213,72 +214,30 @@ textarea::placeholder {
     color: #111111 !important;
 }
 
-/* ======================================================
-   EXPANDER
-   ====================================================== */
-
-[data-testid="stExpander"] {
-    background-color: #ffffff !important;
-    border: 1px solid #e5e7eb !important;
-    border-radius: 14px !important;
-}
-
-[data-testid="stExpander"] * {
-    color: #111111 !important;
-}
-
-/* ======================================================
-   BOTTONI
-   ====================================================== */
-
-.stButton button {
-    border-radius: 10px !important;
-    font-weight: 600 !important;
-}
-
-.stButton button p {
-    color: #111111 !important;
-}
-
-.stButton button span {
-    color: #111111 !important;
-}
-
-/* ======================================================
+/* ========================================================
    FORM
-   ====================================================== */
+   ======================================================== */
 
 [data-testid="stForm"] {
     background-color: #ffffff !important;
-    border-radius: 14px !important;
 }
 
 [data-testid="stForm"] * {
     color: #111111 !important;
 }
 
-/* ======================================================
-   TESTO MARKDOWN
-   ====================================================== */
+/* ========================================================
+   BOTTONI
+   ======================================================== */
 
-[data-testid="stMarkdownContainer"] {
+.stButton button {
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+}
+
+.stButton button p,
+.stButton button span {
     color: #111111 !important;
-}
-
-[data-testid="stMarkdownContainer"] * {
-    color: #111111 !important;
-}
-
-/* ======================================================
-   CAPTION
-   ====================================================== */
-
-[data-testid="stCaptionContainer"] {
-    color: #444444 !important;
-}
-
-[data-testid="stCaptionContainer"] * {
-    color: #444444 !important;
 }
 
 </style>
@@ -312,7 +271,7 @@ return ("API_KEY", INTERVALS_API_KEY)
 
 # ============================================================
 
-# RECUPERA ALLENAMENTI DA INTERVALS.ICU
+# RECUPERA ALLENAMENTI
 
 # ============================================================
 
@@ -330,7 +289,6 @@ params = {
 }
 
 try:
-
     response = requests.get(
         url,
         params=params,
@@ -339,30 +297,24 @@ try:
     )
 
     if response.status_code != 200:
-
         st.error(
             f"Errore Intervals.icu: "
             f"{response.status_code} - {response.text}"
         )
-
         return []
 
     data = response.json()
 
-    events = [
+    return [
         event
         for event in data
         if event.get("category") == "WORKOUT"
     ]
 
-    return events
-
 except Exception as e:
-
     st.error(
         f"Errore durante il collegamento a Intervals.icu: {e}"
     )
-
     return []
 ```
 
@@ -397,7 +349,6 @@ payload = {
 }
 
 try:
-
     response = requests.put(
         url,
         json=payload,
@@ -406,22 +357,18 @@ try:
     )
 
     if response.status_code not in [200, 201]:
-
         st.error(
             f"Errore salvataggio Intervals.icu: "
             f"{response.status_code} - {response.text}"
         )
-
         return False
 
     return True
 
 except Exception as e:
-
     st.error(
         f"Errore durante il salvataggio: {e}"
     )
-
     return False
 ```
 
@@ -440,13 +387,10 @@ if not value:
     return None
 
 try:
-
     return datetime.fromisoformat(
         value.replace("Z", "")
     )
-
 except Exception:
-
     return None
 ```
 
@@ -457,11 +401,8 @@ if not minutes:
     return "—"
 
 try:
-
     minutes = int(round(float(minutes)))
-
 except Exception:
-
     return "—"
 
 hours = minutes // 60
@@ -477,13 +418,11 @@ def get_event_duration(event):
 
 ```
 start = parse_event_datetime(event)
-
 end_value = event.get("end_date_local")
 
 if start and end_value:
 
     try:
-
         end = datetime.fromisoformat(
             end_value.replace("Z", "")
         )
@@ -496,7 +435,6 @@ if start and end_value:
         )
 
     except Exception:
-
         pass
 
 moving_time = event.get("moving_time")
@@ -504,11 +442,8 @@ moving_time = event.get("moving_time")
 if moving_time:
 
     try:
-
         return int(float(moving_time) / 60)
-
     except Exception:
-
         pass
 
 return None
@@ -649,7 +584,6 @@ def find_event_by_id(event_id):
 for event in events:
 
     if str(event.get("id")) == str(event_id):
-
         return event
 
 return None
@@ -659,7 +593,6 @@ def show_page_title(title, subtitle):
 
 ```
 st.title(title)
-
 st.caption(subtitle)
 ```
 
@@ -682,7 +615,6 @@ st.subheader(
 )
 
 start = parse_event_datetime(event)
-
 duration = get_event_duration(event)
 
 if start:
@@ -696,14 +628,12 @@ if start:
 col1, col2, col3 = st.columns(3)
 
 with col1:
-
     st.metric(
         "Durata",
         format_duration(duration),
     )
 
 with col2:
-
     st.metric(
         "Tipo",
         event.get("type", "Ride"),
@@ -714,10 +644,7 @@ with col3:
     load = event.get("load")
 
     if load is None:
-
-        load = event.get(
-            "icu_training_load"
-        )
+        load = event.get("icu_training_load")
 
     st.metric(
         "Carico",
@@ -731,11 +658,8 @@ st.markdown("### 📋 Riepilogo")
 summary = event.get("name")
 
 if summary:
-
     st.info(summary)
-
 else:
-
     st.info(
         "Nessun riepilogo disponibile."
     )
@@ -777,13 +701,11 @@ st.subheader("✏️ Modifica allenamento")
 start = parse_event_datetime(event)
 
 if start is None:
-
     start = datetime.now()
 
 duration = get_event_duration(event)
 
 if duration is None:
-
     duration = 60
 
 with st.form("edit_workout_form"):
@@ -850,7 +772,6 @@ with st.form("edit_workout_form"):
 if cancel:
 
     st.session_state.edit_event = None
-
     st.rerun()
 
 if save:
@@ -882,12 +803,8 @@ if save:
         )
 
         st.session_state.events_cache = None
-
         st.session_state.edit_event = None
-
-        st.session_state.selected_event = event.get(
-            "id"
-        )
+        st.session_state.selected_event = event.get("id")
 
         st.rerun()
 ```
@@ -913,34 +830,29 @@ for event in events:
     start = parse_event_datetime(event)
 
     if start and start.date() == today:
-
         today_events.append(event)
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-
     st.metric(
         "FTP",
         f"{ftp} W",
     )
 
 with col2:
-
     st.metric(
         "Peso",
         f"{weight:.1f} kg",
     )
 
 with col3:
-
     st.metric(
         "Obiettivo",
         goal,
     )
 
 with col4:
-
     st.metric(
         "Allenamenti oggi",
         len(today_events),
@@ -953,7 +865,6 @@ if today_events:
     for event in today_events:
 
         start = parse_event_datetime(event)
-
         duration = get_event_duration(event)
 
         with st.container(border=True):
@@ -962,11 +873,11 @@ if today_events:
                 f"### 🚴 {event.get('name', 'Allenamento')}"
             )
 
-            st.write(
-                f"🕐 {start.strftime('%H:%M')}"
-                if start
-                else ""
-            )
+            if start:
+
+                st.write(
+                    f"🕐 {start.strftime('%H:%M')}"
+                )
 
             st.write(
                 f"⏱️ {format_duration(duration)}"
@@ -998,7 +909,6 @@ for event in events:
     start = parse_event_datetime(event)
 
     if start and start.date() >= today:
-
         upcoming.append(event)
 
 upcoming.sort(
@@ -1010,7 +920,6 @@ upcoming.sort(
 for event in upcoming[:5]:
 
     start = parse_event_datetime(event)
-
     duration = get_event_duration(event)
 
     with st.container(border=True):
@@ -1080,7 +989,6 @@ for event in sorted_events:
     start = parse_event_datetime(event)
 
     if not start:
-
         continue
 
     duration = get_event_duration(event)
@@ -1159,7 +1067,6 @@ sorted_events = sorted(
 for event in sorted_events:
 
     start = parse_event_datetime(event)
-
     duration = get_event_duration(event)
 
     with st.container(border=True):
@@ -1255,11 +1162,8 @@ with col2:
 with col3:
 
     if weight > 0:
-
         wkg = ftp / weight
-
     else:
-
         wkg = 0
 
     st.metric(
@@ -1484,4 +1388,4 @@ edit_event = find_event_by_id(
 if edit_event:
 
     show_edit_form(edit_event)
-
+```
