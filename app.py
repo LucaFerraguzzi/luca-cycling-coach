@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 import requests
 from datetime import datetime, timedelta, date
@@ -1261,4 +1260,3 @@ if st.session_state.edit_event:
     if edit_event:
 
         show_edit_form(edit_event)
-```
