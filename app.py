@@ -19,7 +19,50 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-.stApp {
+.stApp
+/* TESTO GENERALE NERO */
+.main p,
+.main span,
+.main label,
+.main div,
+.main li,
+.main td,
+.main th {
+    color: #111827 !important;
+}
+
+/* TESTO NELLE CARD */
+.workout-card,
+.workout-card *,
+.day-card,
+.day-card *,
+.detail-box,
+.detail-box * {
+    color: #111827 !important;
+}
+
+/* DESCRIZIONE ALLENAMENTO */
+.detail-box .stMarkdown,
+.detail-box .stMarkdown *,
+.detail-box p,
+.detail-box span {
+    color: #111827 !important;
+}
+
+/* TEXT AREA */
+textarea {
+    color: #111827 !important;
+    background-color: white !important;
+}
+
+/* INPUT */
+input {
+    color: #111827 !important;
+    background-color: white !important;
+}
+
+
+{
     background-color: #f5f7fa;
     color: #111827;
 }
