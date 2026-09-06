@@ -24,6 +24,9 @@ if "events_cache" not in st.session_state:
 if "wellness_cache" not in st.session_state:
     st.session_state.wellness_cache = None
 
+if "activities_cache" not in st.session_state:
+    st.session_state.activities_cache = None
+
 if "calendar_week_offset" not in st.session_state:
     st.session_state.calendar_week_offset = 0
 
@@ -258,6 +261,32 @@ def get_wellness_data():
         return None
 
 
+def get_intervals_activities(days=90):
+    today = date.today()
+    oldest = today - timedelta(days=days)
+
+    url = f"{BASE_URL}/athlete/{INTERVALS_ATHLETE_ID}/activities"
+    params = {
+        "oldest": oldest.strftime("%Y-%m-%d"),
+        "newest": today.strftime("%Y-%m-%d")
+    }
+
+    try:
+        response = requests.get(
+            url,
+            params=params,
+            auth=intervals_auth(),
+            timeout=20
+        )
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data, list):
+            return []
+        return data
+    except requests.exceptions.RequestException:
+        return []
+
+
 def create_intervals_event(
     name,
     start_datetime,
@@ -409,6 +438,10 @@ def refresh_wellness():
     st.session_state.wellness_cache = get_wellness_data()
 
 
+def refresh_activities():
+    st.session_state.activities_cache = get_intervals_activities(90)
+
+
 def get_monday(input_date):
     return input_date - timedelta(
         days=input_date.weekday()
@@ -471,20 +504,121 @@ def zone_hr(hr_max, low, high):
     )
 
 
-def coach_state(fitness, fatigue, form):
-    if form is None:
+def coach_state(fitness, fatigue, form, fitness_trend=None):
+    if fitness is None or fatigue is None or form is None:
         return "unknown"
 
     if form < -20:
-        return "fatigued"
+        return "overreaching"
 
     if form < -10:
         return "loaded"
 
     if form > 15:
-        return "fresh"
+        return "recovery"
 
-    return "balanced"
+    if fitness_trend is not None and fitness_trend < -2.0:
+        return "detraining"
+
+    if fitness_trend is not None and fitness_trend > 2.0:
+        return "training"
+
+    return "maintenance"
+
+
+def calculate_hr_training_load(activity, hr_max):
+    """Stima del carico quando non è disponibile la potenza.
+
+    Preferisce il training load già calcolato da Intervals.icu;
+    altrimenti usa durata + FC media + FC max come stima HR-based.
+    """
+    existing = activity.get("icu_training_load")
+    if existing is not None:
+        try:
+            return float(existing)
+        except (TypeError, ValueError):
+            pass
+
+    moving_time = activity.get("moving_time") or activity.get("elapsed_time")
+    avg_hr = activity.get("average_hr") or activity.get("avg_hr")
+
+    if not moving_time or not avg_hr or not hr_max:
+        return 0.0
+
+    minutes = float(moving_time) / 60.0
+    intensity = min(1.0, max(0.0, float(avg_hr) / float(hr_max)))
+
+    # Carico semplice e robusto basato sulla FC: aumenta con durata
+    # e intensità relativa, senza richiedere un misuratore di potenza.
+    relative = max(0.05, (intensity - 0.50) / 0.50)
+    return minutes * relative * 0.75
+
+
+def calculate_coach_load_metrics(activities, hr_max):
+    """Calcola Fitness/Fatigue/Form del Coach anche senza watt.
+
+    Usa i carichi delle attività degli ultimi 90 giorni e due medie
+    esponenziali con costanti 42 e 7 giorni, analoghe al modello
+    Fitness/Fatigue.
+    """
+    today = date.today()
+    daily = {}
+
+    for activity in activities:
+        if str(activity.get("type", "")).lower() not in {"ride", "cycling", "virtualride"}:
+            continue
+        start = parse_event_datetime(activity.get("start_date_local"))
+        if not start:
+            continue
+        d = start.date()
+        if d > today:
+            continue
+        load = calculate_hr_training_load(activity, hr_max)
+        if load > 0:
+            daily[d] = daily.get(d, 0.0) + load
+
+    # Seed a zero-load day before the historical window.
+    ctl = 0.0
+    atl = 0.0
+    history = []
+
+    for days_ago in range(90, -1, -1):
+        d = today - timedelta(days=days_ago)
+        load = daily.get(d, 0.0)
+        ctl += (load - ctl) / 42.0
+        atl += (load - atl) / 7.0
+        history.append({"date": d, "ctl": ctl, "atl": atl})
+
+    if not history:
+        return None, None, None, None, []
+
+    current = history[-1]
+    old = history[-15] if len(history) >= 15 else history[0]
+    trend = current["ctl"] - old["ctl"]
+    form = current["ctl"] - current["atl"]
+
+    return current["ctl"], current["atl"], form, trend, history
+
+
+def state_label(state):
+    labels = {
+        "detraining": "🔵 Detraining",
+        "training": "🟢 Training",
+        "maintenance": "🟡 Mantenimento",
+        "loaded": "🟠 Carico elevato",
+        "overreaching": "🔴 Overreaching",
+        "recovery": "🟢 Recupero / fresco",
+        "unknown": "⚪ Dati insufficienti"
+    }
+    return labels.get(state, state)
+
+
+def zone_power(ftp, percent):
+    return round(ftp * percent / 100)
+
+
+def zone_hr_name(zone):
+    return zone
 
 
 def generate_indoor_workout(
@@ -556,77 +690,67 @@ def generate_indoor_workout(
     )
 
 
-def generate_outdoor_workout(
-    workout_type,
-    duration,
-    hr_max
-):
-    z2_low, z2_high = zone_hr(
-        hr_max, 65, 75
-    )
+def generate_outdoor_workout(workout_type, duration, hr_max):
+    """Workout outdoor espresso esclusivamente in zone FC.
 
+    Non mostra bpm nel workout: l'atleta segue le proprie zone FC
+    configurate sul dispositivo.
+    """
     if workout_type == "Endurance":
         return (
-            "Riscaldamento: 15' in Z2.\n"
-            f"Endurance: {max(20, duration - 30)}' "
-            f"con FC prevalentemente {z2_low}-{z2_high} bpm.\n"
-            "Evita di inseguire la FC nei primi minuti: "
-            "lasciala salire gradualmente.\n"
-            "Defaticamento: 15' facili."
+            "Riscaldamento: 15' in Z1-Z2.\n"
+            f"Endurance: {max(20, duration - 30)}' prevalentemente in Z2.\n"
+            "Mantieni la FC stabile e lascia salire gradualmente la FC.\n"
+            "Defaticamento: 15' in Z1-Z2."
         )
 
     if workout_type == "Tempo":
         return (
             "Riscaldamento: 15' in Z2.\n"
-            "3 x 8' a ritmo sostenuto controllato, "
-            "circa 80-87% FCmax.\n"
-            "Recupero: 4' facili tra le ripetute.\n"
+            "3 x 8' in Z3.\n"
+            "Recupero: 4' in Z1-Z2 tra le ripetute.\n"
             "Completa il resto in Z2.\n"
-            "Defaticamento finale."
+            "Defaticamento finale in Z1-Z2."
         )
 
     if workout_type == "Sweet Spot":
         return (
             "Riscaldamento: 15' in Z2.\n"
-            "3 x 8' a ritmo forte ma sostenibile, "
-            "circa 85-90% FCmax.\n"
-            "Recupero: 4' facili.\n"
-            "Non inseguire subito il target: "
-            "la FC deve salire progressivamente.\n"
-            "Defaticamento finale."
+            "3 x 8' in Z3 alta / vicino alla soglia.\n"
+            "Recupero: 4' in Z1-Z2.\n"
+            "La FC ha inerzia: non inseguire il target nei primi secondi.\n"
+            "Defaticamento finale in Z1-Z2."
         )
 
     if workout_type == "Threshold":
         return (
-            "Riscaldamento: 15' in Z2.\n"
-            "3 x 8' in salita a circa 88-94% FCmax.\n"
-            "Recupero: 4' molto facili.\n"
-            "Mantieni ritmo regolare e non partire oltre il target."
+            "Riscaldamento: 15' progressivo in Z2.\n"
+            "3 x 8' in Z4, ritmo regolare e controllato.\n"
+            "Recupero: 4' in Z1-Z2.\n"
+            "Non partire sopra il target: lascia salire la FC progressivamente.\n"
+            "Defaticamento in Z1-Z2."
         )
 
     if workout_type == "VO2max":
         return (
-            "Riscaldamento: 20' progressivo.\n"
-            "5 x 3' in salita a intensità molto alta.\n"
-            "La FC dovrebbe avvicinarsi a 90-95% FCmax "
-            "verso la parte finale delle ripetute.\n"
-            "Recupero: 3' facili.\n"
-            "La FC è un riferimento ritardato: "
-            "non accelerare solo per raggiungere subito il numero."
+            "Riscaldamento: 20' progressivo da Z1 a Z2.\n"
+            "5 x 3' ad alta intensità, puntando alla Z5 nella parte finale di ogni ripetuta.\n"
+            "Recupero: 3' in Z1-Z2.\n"
+            "La FC è un riferimento ritardato: non accelerare solo per raggiungere subito Z5.\n"
+            "Defaticamento finale in Z1-Z2."
         )
 
     if workout_type == "Recovery":
         return (
-            "45-60' molto facili.\n"
-            f"FC indicativamente sotto {z2_high} bpm.\n"
-            "Nessuna salita tirata e nessun intervallo."
+            "45-60' molto facili in Z1-Z2.\n"
+            "Nessuna salita tirata e nessun intervallo.\n"
+            "Obiettivo: recuperare, non allenare l'intensità."
         )
 
     return (
         f"Riscaldamento: 15' in Z2.\n"
-        f"{max(30, duration - 30)}' in endurance "
-        f"con FC prevalentemente {z2_low}-{z2_high} bpm.\n"
-        "Defaticamento: 15'."
+        f"{max(30, duration - 30)}' prevalentemente in Z2.\n"
+        "Defaticamento: 15' in Z1-Z2."
     )
 
 
@@ -668,7 +792,8 @@ def build_week_plan(
     state = coach_state(
         fitness,
         fatigue,
-        form
+        form,
+        fitness_trend
     )
 
     available = [
@@ -832,6 +957,9 @@ if st.session_state.events_cache is None:
 if st.session_state.wellness_cache is None:
     refresh_wellness()
 
+if st.session_state.activities_cache is None:
+    refresh_activities()
+
 events = st.session_state.events_cache or []
 wellness = st.session_state.wellness_cache
 
@@ -890,20 +1018,25 @@ with st.sidebar:
 
 watts_per_kg = ftp / weight
 
-fitness = None
-fatigue = None
-form = None
+activities = st.session_state.activities_cache or []
 
-if wellness:
-    fitness = wellness.get("ctl")
-    fatigue = wellness.get("atl")
-    form = wellness.get("tsb")
+# Coach metrics: calcolate autonomamente anche senza watt.
+fitness, fatigue, form, fitness_trend, coach_history = calculate_coach_load_metrics(
+    activities, hr_max
+)
 
-    if fitness is None:
-        fitness = wellness.get("ctlLoad")
+# Se il calcolo HR non produce dati sufficienti, usiamo il riferimento
+# di Intervals.icu come fallback.
+if fitness is None and wellness:
+    fitness = wellness.get("ctl") or wellness.get("ctlLoad")
+if fatigue is None and wellness:
+    fatigue = wellness.get("atl") or wellness.get("atlLoad")
+if form is None and fitness is not None and fatigue is not None:
+    form = fitness - fatigue
 
-    if fatigue is None:
-        fatigue = wellness.get("atlLoad")
+coach_status = coach_state(
+    fitness, fatigue, form, fitness_trend
+)
 
 
 # =========================
@@ -1142,6 +1275,15 @@ if page == "Dashboard":
             f"{form:+.0f}" if form is not None else "—"
         )
 
+    st.markdown(
+        f"""<div class="coach-box">
+        <h3>🚦 Stato attuale</h3>
+        <p style="font-size:1.25rem;"><b>{state_label(coach_status)}</b></p>
+        <p>Il Coach valuta l'andamento del carico, non solo la potenza: può quindi funzionare anche quando gli allenamenti non hanno watt.</p>
+        </div>""",
+        unsafe_allow_html=True
+    )
+
     st.divider()
 
     if st.button(
@@ -1150,6 +1292,7 @@ if page == "Dashboard":
     ):
         refresh_events()
         refresh_wellness()
+        refresh_activities()
         st.rerun()
 
     st.subheader("🏋️ Prossimo allenamento")
@@ -1648,6 +1791,13 @@ elif page == "Analisi":
 
     st.divider()
 
+    st.subheader("🚦 Stato del carico")
+    st.success(state_label(coach_status)) if coach_status in {"training", "recovery"} else st.warning(state_label(coach_status))
+    if fitness_trend is not None:
+        st.caption(f"Trend Fitness del Coach negli ultimi ~14 giorni: {fitness_trend:+.1f}")
+
+    st.divider()
+
     st.info(
         "Il prossimo step sarà aggiungere i grafici "
         "storici e l'analisi automatica della risposta "
@@ -1669,7 +1819,8 @@ elif page == "AI Coach":
     state = coach_state(
         fitness,
         fatigue,
-        form
+        form,
+        fitness_trend
     )
 
     st.markdown(
@@ -1683,7 +1834,7 @@ elif page == "AI Coach":
                 &nbsp;&nbsp;
                 <b>Form:</b> {f"{form:+.0f}" if form is not None else "—"}
             </p>
-            <p><b>Stato interpretato:</b> {state}</p>
+            <p><b>Stato interpretato:</b> {state_label(state)}</p>
         </div>
         """,
         unsafe_allow_html=True
@@ -1692,8 +1843,9 @@ elif page == "AI Coach":
     st.subheader("⚙️ Generazione del piano")
 
     st.write(
-        "Questa prima versione crea una settimana strutturata "
-        "e la invia direttamente a Intervals.icu."
+        "Il Coach costruisce la settimana in base allo stato attuale. "
+        "Indoor = target di potenza/FTP; Outdoor = target tramite zone FC. "
+        "La distribuzione evita di trasformare ogni uscita in un allenamento duro."
     )
 
     col1, col2 = st.columns(2)
@@ -1890,7 +2042,7 @@ elif page == "AI Coach":
 
     st.write(
         """
-        La base di generazione è ora pronta. I prossimi moduli saranno:
+        La base del Coach è ora pronta. I prossimi moduli saranno:
 
         - analisi degli allenamenti realmente svolti;
         - confronto programmato vs reale;
