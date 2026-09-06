@@ -254,13 +254,13 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-    peso = st.number_input(
-        "Peso (kg)",
-        min_value=30.0,
-        max_value=150.0,
-        value=50.0,
-        step=0.5
-    )
+weight = st.number_input(
+    "Peso (kg)",
+    min_value=30.0,
+    max_value=150.0,
+    value=50.0,
+    step=0.5
+)
 
     ftp = st.number_input(
         "FTP (W)",
