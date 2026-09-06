@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import requests
 from datetime import datetime, date, timedelta
@@ -30,6 +31,9 @@ if "events_cache" not in st.session_state:
 if "wellness_cache" not in st.session_state:
     st.session_state.wellness_cache = None
 
+if "calendar_week_offset" not in st.session_state:
+    st.session_state.calendar_week_offset = 0
+
 
 # ============================================================
 # STYLE
@@ -39,7 +43,9 @@ st.markdown(
     """
     <style>
 
-    /* SFONDO PRINCIPALE */
+    /* ========================================================
+       SFONDO PRINCIPALE
+       ======================================================== */
 
     .stApp {
         background-color: white;
@@ -55,7 +61,9 @@ st.markdown(
     }
 
 
-    /* TESTO PRINCIPALE */
+    /* ========================================================
+       TESTO PRINCIPALE
+       ======================================================== */
 
     h1, h2, h3, h4 {
         color: #111827 !important;
@@ -66,7 +74,9 @@ st.markdown(
     }
 
 
-    /* SIDEBAR */
+    /* ========================================================
+       SIDEBAR
+       ======================================================== */
 
     [data-testid="stSidebar"] {
         background-color: #111827 !important;
@@ -120,7 +130,9 @@ st.markdown(
     }
 
 
-    /* PULSANTI */
+    /* ========================================================
+       PULSANTI
+       ======================================================== */
 
     .stButton > button {
         background-color: #111827 !important;
@@ -147,7 +159,9 @@ st.markdown(
     }
 
 
-    /* METRICHE */
+    /* ========================================================
+       METRICHE
+       ======================================================== */
 
     [data-testid="stMetricValue"] {
         color: #111827 !important;
@@ -158,7 +172,9 @@ st.markdown(
     }
 
 
-    /* RIQUADRI */
+    /* ========================================================
+       RIQUADRI ALLENAMENTI
+       ======================================================== */
 
     .workout-card {
         background: white;
@@ -166,6 +182,38 @@ st.markdown(
         padding: 18px;
         margin-bottom: 12px;
         border: 1px solid #e5e7eb;
+    }
+
+
+    /* ========================================================
+       DESCRIZIONE ALLENAMENTO
+       ======================================================== */
+
+    .workout-description {
+        color: #111827 !important;
+        background-color: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 15px;
+        white-space: pre-wrap;
+        line-height: 1.5;
+    }
+
+    .workout-description * {
+        color: #111827 !important;
+    }
+
+
+    /* ========================================================
+       APP COLLEGATE
+       ======================================================== */
+
+    .connected-app {
+        background-color: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 10px;
     }
 
     </style>
@@ -418,34 +466,24 @@ def find_event_by_id(event_id):
     return None
 
 
+# ============================================================
+# REFRESH EVENTS
+# ============================================================
+
 def refresh_events():
 
     today = date.today()
 
-    month_start = today.replace(day=1)
+    # Prendiamo un intervallo più ampio del solo mese corrente
+    # così il calendario settimanale può andare avanti/indietro.
 
-    if month_start.month == 12:
-
-        next_month = date(
-            month_start.year + 1,
-            1,
-            1
-        )
-
-    else:
-
-        next_month = date(
-            month_start.year,
-            month_start.month + 1,
-            1
-        )
-
-    month_end = next_month - timedelta(days=1)
+    start_date = today - timedelta(days=60)
+    end_date = today + timedelta(days=120)
 
     st.session_state.events_cache = (
         get_intervals_events(
-            month_start,
-            month_end
+            start_date,
+            end_date
         )
     )
 
@@ -455,6 +493,74 @@ def refresh_wellness():
     st.session_state.wellness_cache = (
         get_wellness_data()
     )
+
+
+# ============================================================
+# WEEK HELPERS
+# ============================================================
+
+def get_monday(input_date):
+
+    return input_date - timedelta(
+        days=input_date.weekday()
+    )
+
+
+def get_calendar_week():
+
+    today = date.today()
+
+    current_monday = get_monday(today)
+
+    selected_monday = (
+        current_monday +
+        timedelta(
+            weeks=st.session_state.calendar_week_offset
+        )
+    )
+
+    selected_sunday = (
+        selected_monday +
+        timedelta(days=6)
+    )
+
+    return selected_monday, selected_sunday
+
+
+def is_event_completed(event):
+
+    """
+    Cerca di capire se l'allenamento è stato completato.
+
+    Intervals.icu normalmente collega un workout
+    completato a un'attività tramite paired_activity_id
+    o paired_activity.
+
+    Controlliamo inoltre alcuni campi comuni.
+    """
+
+    paired_activity_id = event.get(
+        "paired_activity_id"
+    )
+
+    if paired_activity_id:
+        return True
+
+    paired_activity = event.get(
+        "paired_activity"
+    )
+
+    if paired_activity:
+        return True
+
+    activity_id = event.get(
+        "activity_id"
+    )
+
+    if activity_id:
+        return True
+
+    return False
 
 
 # ============================================================
@@ -539,7 +645,7 @@ with st.sidebar:
 
 
 # ============================================================
-# PROFILO
+# PROFILE VALUES
 # ============================================================
 
 watts_per_kg = ftp / weight
@@ -561,9 +667,16 @@ if wellness:
 
     form = wellness.get("tsb")
 
+    # Compatibilità con eventuali nomi alternativi
+    if fitness is None:
+        fitness = wellness.get("ctlLoad")
+
+    if fatigue is None:
+        fatigue = wellness.get("atlLoad")
+
 
 # ============================================================
-# TITLE
+# PAGE TITLE
 # ============================================================
 
 def show_page_title(title, subtitle=None):
@@ -590,9 +703,19 @@ def show_workout_detail(event):
         "Allenamento"
     )
 
-    st.markdown(
-        f"### {name}"
-    )
+    completed = is_event_completed(event)
+
+    if completed:
+
+        st.markdown(
+            f"### ✅ {name}"
+        )
+
+    else:
+
+        st.markdown(
+            f"### {name}"
+        )
 
     start = parse_event_datetime(
         event.get("start_date_local")
@@ -641,6 +764,12 @@ def show_workout_detail(event):
             f"{duration} min"
         )
 
+    if completed:
+
+        st.success(
+            "Allenamento completato"
+        )
+
     st.markdown("#### Descrizione")
 
     description = event.get(
@@ -650,7 +779,14 @@ def show_workout_detail(event):
 
     if description:
 
-        st.text(description)
+        st.markdown(
+            f"""
+            <div class="workout-description">
+            {description}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
     else:
 
@@ -887,7 +1023,7 @@ if page == "Dashboard":
         st.rerun()
 
     # --------------------------------------------------------
-    # TODAY
+    # NEXT WORKOUT
     # --------------------------------------------------------
 
     st.subheader("🏋️ Prossimo allenamento")
@@ -905,6 +1041,13 @@ if page == "Dashboard":
         if start and start.date() >= today:
 
             upcoming.append(event)
+
+    upcoming.sort(
+        key=lambda x: x.get(
+            "start_date_local",
+            ""
+        )
+    )
 
     upcoming = upcoming[:1]
 
@@ -925,6 +1068,8 @@ if page == "Dashboard":
 
         duration = get_event_duration(event)
 
+        completed = is_event_completed(event)
+
         with st.container(border=True):
 
             col1, col2, col3 = st.columns(
@@ -933,9 +1078,17 @@ if page == "Dashboard":
 
             with col1:
 
-                st.markdown(
-                    f"### {event.get('name', 'Allenamento')}"
-                )
+                if completed:
+
+                    st.markdown(
+                        f"### ✅ {event.get('name', 'Allenamento')}"
+                    )
+
+                else:
+
+                    st.markdown(
+                        f"### {event.get('name', 'Allenamento')}"
+                    )
 
             with col2:
 
@@ -1047,7 +1200,7 @@ if page == "Dashboard":
     st.divider()
 
     # --------------------------------------------------------
-    # NEXT WORKOUTS
+    # NEXT 5 WORKOUTS
     # --------------------------------------------------------
 
     st.subheader("📅 Prossimi allenamenti")
@@ -1062,10 +1215,17 @@ if page == "Dashboard":
 
         shown = 0
 
-        for event in events:
+        sorted_events = sorted(
+            events,
+            key=lambda x: x.get(
+                "start_date_local",
+                ""
+            )
+        )
+
+        for event in sorted_events:
 
             if shown >= 5:
-
                 break
 
             start = parse_event_datetime(
@@ -1078,6 +1238,10 @@ if page == "Dashboard":
                     event
                 )
 
+                completed = is_event_completed(
+                    event
+                )
+
                 with st.container(border=True):
 
                     col1, col2, col3 = st.columns(
@@ -1086,9 +1250,17 @@ if page == "Dashboard":
 
                     with col1:
 
-                        st.write(
-                            f"**{event.get('name', 'Allenamento')}**"
-                        )
+                        if completed:
+
+                            st.write(
+                                f"**✅ {event.get('name', 'Allenamento')}**"
+                            )
+
+                        else:
+
+                            st.write(
+                                f"**{event.get('name', 'Allenamento')}**"
+                            )
 
                     with col2:
 
@@ -1115,8 +1287,78 @@ elif page == "Calendario":
 
     show_page_title(
         "Calendario",
-        "Allenamenti sincronizzati direttamente da Intervals.icu."
+        "La tua settimana di allenamento sincronizzata con Intervals.icu."
     )
+
+    # --------------------------------------------------------
+    # WEEK NAVIGATION
+    # --------------------------------------------------------
+
+    current_monday = get_monday(
+        date.today()
+    )
+
+    selected_monday, selected_sunday = (
+        get_calendar_week()
+    )
+
+    nav1, nav2, nav3 = st.columns(
+        [1, 3, 1]
+    )
+
+    with nav1:
+
+        if st.button(
+            "← Settimana precedente",
+            key="previous_week"
+        ):
+
+            st.session_state.calendar_week_offset -= 1
+
+            st.rerun()
+
+    with nav2:
+
+        if selected_monday == current_monday:
+
+            st.markdown(
+                "<h3 style='text-align:center;'>"
+                "Settimana corrente"
+                "</h3>",
+                unsafe_allow_html=True
+            )
+
+        else:
+
+            st.markdown(
+                f"<h3 style='text-align:center;'>"
+                f"{selected_monday.strftime('%d/%m')} — "
+                f"{selected_sunday.strftime('%d/%m/%Y')}"
+                f"</h3>",
+                unsafe_allow_html=True
+            )
+
+    with nav3:
+
+        if st.button(
+            "Settimana successiva →",
+            key="next_week"
+        ):
+
+            st.session_state.calendar_week_offset += 1
+
+            st.rerun()
+
+    st.caption(
+        f"Dal {selected_monday.strftime('%d/%m/%Y')} "
+        f"al {selected_sunday.strftime('%d/%m/%Y')}"
+    )
+
+    st.divider()
+
+    # --------------------------------------------------------
+    # REFRESH CALENDAR
+    # --------------------------------------------------------
 
     if st.button(
         "🔄 Aggiorna calendario",
@@ -1127,15 +1369,46 @@ elif page == "Calendario":
 
         st.rerun()
 
-    if not events:
+    # --------------------------------------------------------
+    # EVENTS OF SELECTED WEEK
+    # --------------------------------------------------------
+
+    week_events = []
+
+    for event in events:
+
+        start = parse_event_datetime(
+            event.get("start_date_local")
+        )
+
+        if not start:
+            continue
+
+        if (
+            selected_monday
+            <= start.date()
+            <= selected_sunday
+        ):
+
+            week_events.append(event)
+
+    week_events.sort(
+        key=lambda x: x.get(
+            "start_date_local",
+            ""
+        )
+    )
+
+    if not week_events:
 
         st.info(
-            "Nessun allenamento trovato."
+            "Nessun allenamento programmato "
+            "in questa settimana."
         )
 
     else:
 
-        for event in events:
+        for event in week_events:
 
             start = parse_event_datetime(
                 event.get("start_date_local")
@@ -1143,18 +1416,36 @@ elif page == "Calendario":
 
             duration = get_event_duration(event)
 
+            completed = is_event_completed(
+                event
+            )
+
             with st.container(border=True):
 
                 col1, col2, col3, col4 = st.columns(
-                    [1.3, 3, 1.5, 1]
+                    [1.5, 3.5, 1.5, 1]
                 )
 
                 with col1:
 
                     if start:
 
-                        st.markdown(
-                            f"**{start.strftime('%d/%m')}**"
+                        if completed:
+
+                            st.markdown(
+                                f"### ✅ {start.strftime('%a')}"
+                            )
+
+                        else:
+
+                            st.markdown(
+                                f"### {start.strftime('%a')}"
+                            )
+
+                        st.caption(
+                            start.strftime(
+                                "%d/%m/%Y"
+                            )
                         )
 
                         st.caption(
@@ -1163,9 +1454,17 @@ elif page == "Calendario":
 
                 with col2:
 
-                    st.markdown(
-                        f"**{event.get('name', 'Allenamento')}**"
-                    )
+                    if completed:
+
+                        st.markdown(
+                            f"**✅ {event.get('name', 'Allenamento')}**"
+                        )
+
+                    else:
+
+                        st.markdown(
+                            f"**{event.get('name', 'Allenamento')}**"
+                        )
 
                     st.caption(
                         event.get(
@@ -1179,6 +1478,12 @@ elif page == "Calendario":
                     st.write(
                         f"⏱️ {duration} min"
                     )
+
+                    if completed:
+
+                        st.success(
+                            "Completato"
+                        )
 
                 with col4:
 
@@ -1202,18 +1507,41 @@ elif page == "Allenamenti":
 
     show_page_title(
         "Allenamenti",
-        "Gli allenamenti attualmente presenti su Intervals.icu."
+        "I prossimi 5 allenamenti presenti su Intervals.icu."
     )
 
-    if not events:
+    today = date.today()
+
+    future_events = []
+
+    for event in events:
+
+        start = parse_event_datetime(
+            event.get("start_date_local")
+        )
+
+        if start and start.date() >= today:
+
+            future_events.append(event)
+
+    future_events.sort(
+        key=lambda x: x.get(
+            "start_date_local",
+            ""
+        )
+    )
+
+    future_events = future_events[:5]
+
+    if not future_events:
 
         st.info(
-            "Nessun allenamento presente."
+            "Non ci sono prossimi allenamenti programmati."
         )
 
     else:
 
-        for event in events:
+        for event in future_events:
 
             start = parse_event_datetime(
                 event.get("start_date_local")
@@ -1221,26 +1549,52 @@ elif page == "Allenamenti":
 
             duration = get_event_duration(event)
 
+            completed = is_event_completed(
+                event
+            )
+
             with st.container(border=True):
 
                 if start:
 
-                    st.caption(
-                        start.strftime(
-                            "%d/%m/%Y — %H:%M"
+                    if completed:
+
+                        st.caption(
+                            f"✅ {start.strftime('%d/%m/%Y — %H:%M')}"
                         )
+
+                    else:
+
+                        st.caption(
+                            start.strftime(
+                                "%d/%m/%Y — %H:%M"
+                            )
+                        )
+
+                if completed:
+
+                    st.subheader(
+                        f"✅ {event.get('name', 'Allenamento')}"
                     )
 
-                st.subheader(
-                    event.get(
-                        "name",
-                        "Allenamento"
+                else:
+
+                    st.subheader(
+                        event.get(
+                            "name",
+                            "Allenamento"
+                        )
                     )
-                )
 
                 st.write(
                     f"Durata: **{duration} minuti**"
                 )
+
+                if completed:
+
+                    st.success(
+                        "Allenamento completato"
+                    )
 
                 if st.button(
                     "Apri allenamento",
@@ -1382,29 +1736,98 @@ elif page == "Profilo":
 
     show_page_title(
         "Profilo",
-        "Le tue impostazioni."
+        "Le tue impostazioni e le app collegate."
     )
+
+    # --------------------------------------------------------
+    # ATHLETE DATA
+    # --------------------------------------------------------
 
     st.subheader("Dati atleta")
 
-    st.write(
-        f"**Peso:** {weight:.1f} kg"
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.write(
+            f"**Peso:** {weight:.1f} kg"
+        )
+
+        st.write(
+            f"**FTP:** {ftp} W"
+        )
+
+        st.write(
+            f"**FTP relativo:** {watts_per_kg:.2f} W/kg"
+        )
+
+    with col2:
+
+        st.write(
+            f"**FC max:** {hr_max} bpm"
+        )
+
+        st.write(
+            f"**Obiettivo:** {goal}"
+        )
+
+    st.divider()
+
+    # --------------------------------------------------------
+    # CONNECTED APPS
+    # --------------------------------------------------------
+
+    st.subheader("🔗 App collegate")
+
+    st.markdown(
+        """
+        <div class="connected-app">
+            <h4>🟢 Intervals.icu</h4>
+            <p>
+                Collegato e sincronizzato.<br>
+                Luca Cycling Coach utilizza Intervals.icu
+                per leggere gli allenamenti, il calendario
+                e i dati di Fitness / Fatigue / Form.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
-    st.write(
-        f"**FTP:** {ftp} W"
+    st.markdown(
+        """
+        <div class="connected-app">
+            <h4>⚪ Garmin</h4>
+            <p>
+                Integrazione prevista.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
-    st.write(
-        f"**FTP relativo:** {watts_per_kg:.2f} W/kg"
+    st.markdown(
+        """
+        <div class="connected-app">
+            <h4>⚪ Strava</h4>
+            <p>
+                Integrazione prevista.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
-    st.write(
-        f"**FC max:** {hr_max} bpm"
-    )
-
-    st.write(
-        f"**Obiettivo:** {goal}"
+    st.markdown(
+        """
+        <div class="connected-app">
+            <h4>⚪ MyWhoosh</h4>
+            <p>
+                Integrazione prevista.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
 
@@ -1434,3 +1857,4 @@ if st.session_state.edit_event is not None:
     show_edit_form(
         st.session_state.edit_event
     )
+```
