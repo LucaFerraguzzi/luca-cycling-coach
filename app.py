@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-from datetime import datetime, date, time, timedelta
+from datetime import datetime, date, timedelta
 
 
 # ============================================================
@@ -27,6 +27,9 @@ if "edit_event" not in st.session_state:
 if "events_cache" not in st.session_state:
     st.session_state.events_cache = None
 
+if "wellness_cache" not in st.session_state:
+    st.session_state.wellness_cache = None
+
 
 # ============================================================
 # STYLE
@@ -35,7 +38,9 @@ if "events_cache" not in st.session_state:
 st.markdown(
     """
     <style>
+
     /* SFONDO PRINCIPALE */
+
     .stApp {
         background-color: white;
     }
@@ -49,8 +54,10 @@ st.markdown(
         padding-bottom: 3rem;
     }
 
+
     /* TESTO PRINCIPALE */
-    h1, h2, h3 {
+
+    h1, h2, h3, h4 {
         color: #111827 !important;
     }
 
@@ -58,7 +65,9 @@ st.markdown(
         color: #111827;
     }
 
+
     /* SIDEBAR */
+
     [data-testid="stSidebar"] {
         background-color: #111827 !important;
     }
@@ -66,6 +75,7 @@ st.markdown(
     [data-testid="stSidebar"] h1,
     [data-testid="stSidebar"] h2,
     [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] h4,
     [data-testid="stSidebar"] p,
     [data-testid="stSidebar"] span,
     [data-testid="stSidebar"] label,
@@ -73,7 +83,9 @@ st.markdown(
         color: white !important;
     }
 
+
     /* RADIO SIDEBAR */
+
     [data-testid="stSidebar"] [role="radiogroup"] label {
         color: white !important;
     }
@@ -82,20 +94,34 @@ st.markdown(
         color: white !important;
     }
 
+
     /* INPUT SIDEBAR */
+
     [data-testid="stSidebar"] input {
         color: #111827 !important;
         background-color: white !important;
     }
 
-    /* SELECTBOX / INPUT TESTO SIDEBAR */
     [data-testid="stSidebar"] .stNumberInput input,
     [data-testid="stSidebar"] .stTextInput input {
         color: #111827 !important;
         background-color: white !important;
     }
 
-    /* PULSANTI NERI CON TESTO BIANCO */
+
+    /* SELECT SIDEBAR */
+
+    [data-testid="stSidebar"] div[data-baseweb="select"] {
+        background-color: white !important;
+    }
+
+    [data-testid="stSidebar"] div[data-baseweb="select"] * {
+        color: #111827 !important;
+    }
+
+
+    /* PULSANTI */
+
     .stButton > button {
         background-color: #111827 !important;
         color: white !important;
@@ -120,7 +146,9 @@ st.markdown(
         color: white !important;
     }
 
+
     /* METRICHE */
+
     [data-testid="stMetricValue"] {
         color: #111827 !important;
     }
@@ -129,7 +157,9 @@ st.markdown(
         color: #4b5563 !important;
     }
 
+
     /* RIQUADRI */
+
     .workout-card {
         background: white;
         border-radius: 12px;
@@ -137,6 +167,7 @@ st.markdown(
         margin-bottom: 12px;
         border: 1px solid #e5e7eb;
     }
+
     </style>
     """,
     unsafe_allow_html=True
@@ -148,13 +179,17 @@ st.markdown(
 # ============================================================
 
 try:
+
     INTERVALS_ATHLETE_ID = st.secrets["INTERVALS_ATHLETE_ID"]
     INTERVALS_API_KEY = st.secrets["INTERVALS_API_KEY"]
+
 except Exception:
+
     st.error(
         "Mancano INTERVALS_ATHLETE_ID e INTERVALS_API_KEY "
         "nei Secrets di Streamlit."
     )
+
     st.stop()
 
 
@@ -170,8 +205,10 @@ def intervals_auth():
 # ============================================================
 
 def get_intervals_events(start_date, end_date):
+
     url = (
-        f"{BASE_URL}/athlete/{INTERVALS_ATHLETE_ID}/events"
+        f"{BASE_URL}/athlete/"
+        f"{INTERVALS_ATHLETE_ID}/events"
     )
 
     params = {
@@ -180,6 +217,7 @@ def get_intervals_events(start_date, end_date):
     }
 
     try:
+
         response = requests.get(
             url,
             params=params,
@@ -194,18 +232,73 @@ def get_intervals_events(start_date, end_date):
         workouts = []
 
         for event in events:
+
             if event.get("category") == "WORKOUT":
                 workouts.append(event)
 
         workouts.sort(
-            key=lambda x: x.get("start_date_local", "")
+            key=lambda x: x.get(
+                "start_date_local",
+                ""
+            )
         )
 
         return workouts
 
     except requests.exceptions.RequestException as e:
-        st.error(f"Errore nella connessione a Intervals.icu: {e}")
+
+        st.error(
+            f"Errore nella connessione a Intervals.icu: {e}"
+        )
+
         return []
+
+
+# ============================================================
+# GET WELLNESS FROM INTERVALS.ICU
+# ============================================================
+
+def get_wellness_data():
+
+    today = date.today()
+
+    oldest = today - timedelta(days=7)
+
+    url = (
+        f"{BASE_URL}/athlete/"
+        f"{INTERVALS_ATHLETE_ID}/wellness"
+    )
+
+    params = {
+        "oldest": oldest.strftime("%Y-%m-%d"),
+        "newest": today.strftime("%Y-%m-%d")
+    }
+
+    try:
+
+        response = requests.get(
+            url,
+            params=params,
+            auth=intervals_auth(),
+            timeout=20
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        if not data:
+            return None
+
+        data.sort(
+            key=lambda x: x.get("id", "")
+        )
+
+        return data[-1]
+
+    except requests.exceptions.RequestException:
+
+        return None
 
 
 # ============================================================
@@ -219,25 +312,33 @@ def update_intervals_event(
     end_datetime,
     description
 ):
+
     url = (
         f"{BASE_URL}/athlete/"
         f"{INTERVALS_ATHLETE_ID}/events/{event_id}"
     )
 
     payload = {
+
         "name": name,
+
         "start_date_local": start_datetime.strftime(
             "%Y-%m-%dT%H:%M:%S"
         ),
+
         "end_date_local": end_datetime.strftime(
             "%Y-%m-%dT%H:%M:%S"
         ),
+
         "description": description,
+
         "category": "WORKOUT",
+
         "type": "Ride"
     }
 
     try:
+
         response = requests.put(
             url,
             json=payload,
@@ -250,9 +351,12 @@ def update_intervals_event(
         return True
 
     except requests.exceptions.RequestException as e:
+
         st.error(
-            f"Errore durante il salvataggio su Intervals.icu: {e}"
+            "Errore durante il salvataggio "
+            f"su Intervals.icu: {e}"
         )
+
         return False
 
 
@@ -261,18 +365,23 @@ def update_intervals_event(
 # ============================================================
 
 def parse_event_datetime(value):
+
     if not value:
         return None
 
     try:
+
         return datetime.fromisoformat(
             value.replace("Z", "")
         )
+
     except Exception:
+
         return None
 
 
 def get_event_duration(event):
+
     start = parse_event_datetime(
         event.get("start_date_local")
     )
@@ -282,21 +391,27 @@ def get_event_duration(event):
     )
 
     if start and end:
-        return int((end - start).total_seconds() / 60)
+
+        return int(
+            (end - start).total_seconds() / 60
+        )
 
     moving_time = event.get("moving_time")
 
     if moving_time:
+
         return int(moving_time / 60)
 
     return 60
 
 
 def find_event_by_id(event_id):
+
     if not st.session_state.events_cache:
         return None
 
     for event in st.session_state.events_cache:
+
         if str(event.get("id")) == str(event_id):
             return event
 
@@ -304,17 +419,21 @@ def find_event_by_id(event_id):
 
 
 def refresh_events():
+
     today = date.today()
 
     month_start = today.replace(day=1)
 
     if month_start.month == 12:
+
         next_month = date(
             month_start.year + 1,
             1,
             1
         )
+
     else:
+
         next_month = date(
             month_start.year,
             month_start.month + 1,
@@ -323,21 +442,43 @@ def refresh_events():
 
     month_end = next_month - timedelta(days=1)
 
-    st.session_state.events_cache = get_intervals_events(
-        month_start,
-        month_end
+    st.session_state.events_cache = (
+        get_intervals_events(
+            month_start,
+            month_end
+        )
+    )
+
+
+def refresh_wellness():
+
+    st.session_state.wellness_cache = (
+        get_wellness_data()
     )
 
 
 # ============================================================
-# LOAD EVENTS
+# LOAD DATA
 # ============================================================
 
 if st.session_state.events_cache is None:
+
     refresh_events()
 
 
-events = st.session_state.events_cache or []
+if st.session_state.wellness_cache is None:
+
+    refresh_wellness()
+
+
+events = (
+    st.session_state.events_cache or []
+)
+
+
+wellness = (
+    st.session_state.wellness_cache
+)
 
 
 # ============================================================
@@ -398,6 +539,30 @@ with st.sidebar:
 
 
 # ============================================================
+# PROFILO
+# ============================================================
+
+watts_per_kg = ftp / weight
+
+
+# ============================================================
+# WELLNESS VALUES
+# ============================================================
+
+fitness = None
+fatigue = None
+form = None
+
+if wellness:
+
+    fitness = wellness.get("ctl")
+
+    fatigue = wellness.get("atl")
+
+    form = wellness.get("tsb")
+
+
+# ============================================================
 # TITLE
 # ============================================================
 
@@ -406,6 +571,7 @@ def show_page_title(title, subtitle=None):
     st.title(title)
 
     if subtitle:
+
         st.caption(subtitle)
 
 
@@ -424,7 +590,9 @@ def show_workout_detail(event):
         "Allenamento"
     )
 
-    st.markdown(f"### {name}")
+    st.markdown(
+        f"### {name}"
+    )
 
     start = parse_event_datetime(
         event.get("start_date_local")
@@ -435,24 +603,39 @@ def show_workout_detail(event):
     col1, col2, col3 = st.columns(3)
 
     with col1:
+
         if start:
+
             st.metric(
                 "Data",
                 start.strftime("%d/%m/%Y")
             )
+
         else:
-            st.metric("Data", "-")
+
+            st.metric(
+                "Data",
+                "-"
+            )
 
     with col2:
+
         if start:
+
             st.metric(
                 "Ora",
                 start.strftime("%H:%M")
             )
+
         else:
-            st.metric("Ora", "-")
+
+            st.metric(
+                "Ora",
+                "-"
+            )
 
     with col3:
+
         st.metric(
             "Durata",
             f"{duration} min"
@@ -466,17 +649,23 @@ def show_workout_detail(event):
     )
 
     if description:
+
         st.text(description)
+
     else:
+
         st.info(
-            "Questo allenamento non contiene una descrizione."
+            "Questo allenamento non contiene "
+            "una descrizione."
         )
 
     if st.button(
         "✏️ Modifica allenamento",
         key=f"edit_{event.get('id')}"
     ):
+
         st.session_state.edit_event = event
+
         st.rerun()
 
 
@@ -495,6 +684,7 @@ def show_edit_form(event):
     )
 
     if start is None:
+
         start = datetime.now()
 
     duration = get_event_duration(event)
@@ -521,18 +711,21 @@ def show_edit_form(event):
         col1, col2, col3 = st.columns(3)
 
         with col1:
+
             new_date = st.date_input(
                 "Data",
                 value=start.date()
             )
 
         with col2:
+
             new_time = st.time_input(
                 "Ora",
                 value=start.time()
             )
 
         with col3:
+
             new_duration = st.number_input(
                 "Durata (minuti)",
                 min_value=1,
@@ -550,17 +743,21 @@ def show_edit_form(event):
         col_save, col_cancel = st.columns(2)
 
         with col_save:
+
             save = st.form_submit_button(
                 "💾 Salva su Intervals.icu"
             )
 
         with col_cancel:
+
             cancel = st.form_submit_button(
                 "Annulla"
             )
 
     if cancel:
+
         st.session_state.edit_event = None
+
         st.rerun()
 
     if save:
@@ -572,7 +769,9 @@ def show_edit_form(event):
 
         new_end = (
             new_start +
-            timedelta(minutes=int(new_duration))
+            timedelta(
+                minutes=int(new_duration)
+            )
         )
 
         success = update_intervals_event(
@@ -586,7 +785,8 @@ def show_edit_form(event):
         if success:
 
             st.success(
-                "Allenamento aggiornato su Intervals.icu!"
+                "Allenamento aggiornato "
+                "su Intervals.icu!"
             )
 
             st.session_state.edit_event = None
@@ -607,104 +807,304 @@ if page == "Dashboard":
         "Il tuo centro di controllo per il ciclismo."
     )
 
+    # --------------------------------------------------------
+    # TOP METRICS
+    # --------------------------------------------------------
+
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
+
         st.metric(
-            "Peso",
-            f"{weight:.1f} kg"
+            "⚡ FTP",
+            f"{ftp} W",
+            f"{watts_per_kg:.2f} W/kg"
         )
 
     with col2:
-        st.metric(
-            "FTP",
-            f"{ftp} W"
-        )
+
+        if fitness is not None:
+
+            st.metric(
+                "💪 Fitness",
+                f"{fitness:.0f}"
+            )
+
+        else:
+
+            st.metric(
+                "💪 Fitness",
+                "—"
+            )
 
     with col3:
-        st.metric(
-            "FC max",
-            f"{hr_max} bpm"
-        )
+
+        if fatigue is not None:
+
+            st.metric(
+                "😴 Fatigue",
+                f"{fatigue:.0f}"
+            )
+
+        else:
+
+            st.metric(
+                "😴 Fatigue",
+                "—"
+            )
 
     with col4:
-        st.metric(
-            "Allenamenti",
-            len(events)
-        )
+
+        if form is not None:
+
+            st.metric(
+                "📈 Form",
+                f"{form:+.0f}"
+            )
+
+        else:
+
+            st.metric(
+                "📈 Form",
+                "—"
+            )
 
     st.divider()
 
-    st.subheader("Prossimi allenamenti")
+    # --------------------------------------------------------
+    # REFRESH
+    # --------------------------------------------------------
 
-    if not events:
+    if st.button(
+        "🔄 Aggiorna dati",
+        key="dashboard_refresh"
+    ):
+
+        refresh_events()
+
+        refresh_wellness()
+
+        st.rerun()
+
+    # --------------------------------------------------------
+    # TODAY
+    # --------------------------------------------------------
+
+    st.subheader("🏋️ Prossimo allenamento")
+
+    today = date.today()
+
+    upcoming = []
+
+    for event in events:
+
+        start = parse_event_datetime(
+            event.get("start_date_local")
+        )
+
+        if start and start.date() >= today:
+
+            upcoming.append(event)
+
+    upcoming = upcoming[:1]
+
+    if not upcoming:
 
         st.info(
-            "Non ci sono allenamenti programmati "
-            "nel periodo caricato."
+            "Non ci sono allenamenti imminenti "
+            "nel calendario."
         )
 
     else:
 
-        today = date.today()
+        event = upcoming[0]
 
-        upcoming = []
+        start = parse_event_datetime(
+            event.get("start_date_local")
+        )
+
+        duration = get_event_duration(event)
+
+        with st.container(border=True):
+
+            col1, col2, col3 = st.columns(
+                [3, 1, 1]
+            )
+
+            with col1:
+
+                st.markdown(
+                    f"### {event.get('name', 'Allenamento')}"
+                )
+
+            with col2:
+
+                if start:
+
+                    st.write(
+                        start.strftime(
+                            "%d/%m %H:%M"
+                        )
+                    )
+
+            with col3:
+
+                st.write(
+                    f"{duration} min"
+                )
+
+            if st.button(
+                "Apri allenamento",
+                key=f"dashboard_open_{event.get('id')}"
+            ):
+
+                st.session_state.selected_event = (
+                    event.get("id")
+                )
+
+                st.rerun()
+
+    st.divider()
+
+    # --------------------------------------------------------
+    # TRAINING STATUS
+    # --------------------------------------------------------
+
+    st.subheader("📊 Stato allenamento")
+
+    status_col1, status_col2, status_col3 = st.columns(3)
+
+    with status_col1:
+
+        if fitness is not None:
+
+            st.metric(
+                "Fitness / CTL",
+                f"{fitness:.0f}"
+            )
+
+        else:
+
+            st.metric(
+                "Fitness / CTL",
+                "—"
+            )
+
+    with status_col2:
+
+        if fatigue is not None:
+
+            st.metric(
+                "Fatigue / ATL",
+                f"{fatigue:.0f}"
+            )
+
+        else:
+
+            st.metric(
+                "Fatigue / ATL",
+                "—"
+            )
+
+    with status_col3:
+
+        if form is not None:
+
+            st.metric(
+                "Form / TSB",
+                f"{form:+.0f}"
+            )
+
+        else:
+
+            st.metric(
+                "Form / TSB",
+                "—"
+            )
+
+    if form is not None:
+
+        if form > 10:
+
+            st.success(
+                "🟢 Sei molto fresco. "
+                "Potresti essere pronto per una sessione impegnativa."
+            )
+
+        elif form >= -10:
+
+            st.info(
+                "🟡 La tua forma è relativamente equilibrata."
+            )
+
+        else:
+
+            st.warning(
+                "🔴 Il carico recente è elevato. "
+                "Il recupero potrebbe essere importante."
+            )
+
+    st.divider()
+
+    # --------------------------------------------------------
+    # NEXT WORKOUTS
+    # --------------------------------------------------------
+
+    st.subheader("📅 Prossimi allenamenti")
+
+    if not events:
+
+        st.info(
+            "Nessun allenamento programmato."
+        )
+
+    else:
+
+        shown = 0
 
         for event in events:
+
+            if shown >= 5:
+
+                break
 
             start = parse_event_datetime(
                 event.get("start_date_local")
             )
 
             if start and start.date() >= today:
-                upcoming.append(event)
 
-        upcoming = upcoming[:5]
-
-        if not upcoming:
-
-            st.info(
-                "Non ci sono altri allenamenti imminenti."
-            )
-
-        for event in upcoming:
-
-            start = parse_event_datetime(
-                event.get("start_date_local")
-            )
-
-            duration = get_event_duration(event)
-
-            with st.container(border=True):
-
-                col1, col2, col3 = st.columns(
-                    [2, 1, 1]
+                duration = get_event_duration(
+                    event
                 )
 
-                with col1:
-                    st.markdown(
-                        f"**{event.get('name', 'Allenamento')}**"
+                with st.container(border=True):
+
+                    col1, col2, col3 = st.columns(
+                        [3, 1.5, 1]
                     )
 
-                with col2:
-                    if start:
+                    with col1:
+
                         st.write(
-                            start.strftime("%d/%m %H:%M")
+                            f"**{event.get('name', 'Allenamento')}**"
                         )
 
-                with col3:
-                    st.write(
-                        f"{duration} min"
-                    )
+                    with col2:
 
-                if st.button(
-                    "Apri",
-                    key=f"dashboard_{event.get('id')}"
-                ):
-                    st.session_state.selected_event = (
-                        event.get("id")
-                    )
-                    st.rerun()
+                        st.write(
+                            start.strftime(
+                                "%d/%m %H:%M"
+                            )
+                        )
+
+                    with col3:
+
+                        st.write(
+                            f"{duration} min"
+                        )
+
+                shown += 1
 
 
 # ============================================================
@@ -722,7 +1122,9 @@ elif page == "Calendario":
         "🔄 Aggiorna calendario",
         key="refresh_calendar"
     ):
+
         refresh_events()
+
         st.rerun()
 
     if not events:
@@ -750,9 +1152,11 @@ elif page == "Calendario":
                 with col1:
 
                     if start:
+
                         st.markdown(
                             f"**{start.strftime('%d/%m')}**"
                         )
+
                         st.caption(
                             start.strftime("%H:%M")
                         )
@@ -820,6 +1224,7 @@ elif page == "Allenamenti":
             with st.container(border=True):
 
                 if start:
+
                     st.caption(
                         start.strftime(
                             "%d/%m/%Y — %H:%M"
@@ -860,34 +1265,82 @@ elif page == "Analisi":
         "Analisi della tua situazione attuale."
     )
 
-    st.info(
-        "La sezione Analisi verrà collegata ai tuoi "
-        "allenamenti completati e ai dati di Intervals.icu."
-    )
-
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
 
-        st.subheader("Profilo attuale")
+        if fitness is not None:
 
-        st.write(
-            f"Peso: **{weight:.1f} kg**"
-        )
+            st.metric(
+                "Fitness",
+                f"{fitness:.0f}"
+            )
 
-        st.write(
-            f"FTP: **{ftp} W**"
-        )
+        else:
 
-        st.write(
-            f"FC max: **{hr_max} bpm**"
-        )
+            st.metric(
+                "Fitness",
+                "—"
+            )
 
     with col2:
 
-        st.subheader("Obiettivo")
+        if fatigue is not None:
 
-        st.write(goal)
+            st.metric(
+                "Fatigue",
+                f"{fatigue:.0f}"
+            )
+
+        else:
+
+            st.metric(
+                "Fatigue",
+                "—"
+            )
+
+    with col3:
+
+        if form is not None:
+
+            st.metric(
+                "Form",
+                f"{form:+.0f}"
+            )
+
+        else:
+
+            st.metric(
+                "Form",
+                "—"
+            )
+
+    st.divider()
+
+    st.subheader("Profilo")
+
+    st.write(
+        f"Peso: **{weight:.1f} kg**"
+    )
+
+    st.write(
+        f"FTP: **{ftp} W**"
+    )
+
+    st.write(
+        f"FTP relativo: **{watts_per_kg:.2f} W/kg**"
+    )
+
+    st.write(
+        f"FC max: **{hr_max} bpm**"
+    )
+
+    st.divider()
+
+    st.info(
+        "Il prossimo step sarà aggiungere i grafici "
+        "storici di Fitness, Fatigue e Form."
+    )
 
 
 # ============================================================
@@ -911,7 +1364,8 @@ elif page == "AI Coach":
 
         - analizzare gli allenamenti completati;
         - confrontare allenamento previsto e allenamento reale;
-        - valutare carico e fatica;
+        - valutare Fitness, Fatigue e Form;
+        - valutare il carico di allenamento;
         - considerare gli allenamenti saltati;
         - valutare le sensazioni dell'atleta;
         - modificare gli allenamenti futuri;
@@ -942,6 +1396,10 @@ elif page == "Profilo":
     )
 
     st.write(
+        f"**FTP relativo:** {watts_per_kg:.2f} W/kg"
+    )
+
+    st.write(
         f"**FC max:** {hr_max} bpm"
     )
 
@@ -962,7 +1420,9 @@ if st.session_state.selected_event is not None:
 
     if selected:
 
-        show_workout_detail(selected)
+        show_workout_detail(
+            selected
+        )
 
 
 # ============================================================
