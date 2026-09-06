@@ -57,6 +57,9 @@ if "coach_mode_week" not in st.session_state:
 if "coach_plan_horizon" not in st.session_state:
     st.session_state.coach_plan_horizon = 11
 
+if "coach_preview" not in st.session_state:
+    st.session_state.coach_preview = None
+
 # =========================
 # STYLE
 # =========================
@@ -1144,24 +1147,56 @@ def rolling_plan(start_date, horizon_days=11):
 
 
 def create_rolling_plan(start_date=None, horizon_days=11):
+    """Prepara il piano senza caricarlo: il Coach lo mostra prima dell'upload."""
     start_date = start_date or date.today()
     plan, state = rolling_plan(start_date, horizon_days)
-    # Usa sempre il calendario appena aggiornato, non una copia vecchia.
     current_events = st.session_state.events_cache or []
-    created, skipped = create_coach_week(plan, current_events)
+    pending = []
+    skipped = []
+    for workout in plan:
+        if event_exists_on_date(current_events, workout["date"]):
+            skipped.append(workout["date"])
+        else:
+            pending.append(workout)
+    st.session_state.coach_preview = {
+        "plan": pending,
+        "state": state,
+        "skipped": skipped,
+        "start": start_date,
+    }
+    return pending, state, [], skipped
+
+
+def upload_coach_preview():
+    preview = st.session_state.get("coach_preview")
+    if not preview:
+        return [], []
+    created, skipped = create_coach_week(
+        preview["plan"],
+        st.session_state.events_cache or []
+    )
     refresh_events()
-    return plan, state, created, skipped
+    st.session_state.coach_preview = None
+    return created, skipped
 
 
 def ensure_coach_horizon():
-    """Mantiene automaticamente una finestra futura di circa 1.5 settimane."""
+    """Non carica automaticamente: prepara solo una nuova anteprima quando serve."""
     start = st.session_state.get("coach_start_date")
     if not start:
         return 0
-    if start < date.today():
-        start = date.today()
-    _, _, created, _ = create_rolling_plan(start, st.session_state.coach_plan_horizon)
-    return len(created)
+    future = [
+        e for e in (st.session_state.events_cache or [])
+        if (parse_event_datetime(e.get("start_date_local"))
+            and parse_event_datetime(e.get("start_date_local")).date() >= date.today())
+    ]
+    coach_events = [
+        e for e in future
+        if str(e.get("name", "")).lower().startswith(("indoor", "outdoor"))
+    ]
+    if len(coach_events) < 5 and not st.session_state.get("coach_preview"):
+        create_rolling_plan(max(start, date.today()), st.session_state.coach_plan_horizon)
+    return 0
 
 
 def delete_workouts_on_dates(dates):
@@ -1267,7 +1302,7 @@ def coach_process_message(message):
         responses.append(
             f"Perfetto. Considero **{start.strftime('%d/%m/%Y')}** come inizio del blocco serio. "
             f"Ho pianificato circa {st.session_state.coach_plan_horizon} giorni, rispettando stato, recupero e disponibilità. "
-            f"Creati {len(created)} allenamenti."
+            f"Ho preparato **{len(plan)} allenamenti** in anteprima: controllali qui sotto e poi potrai caricarli su Intervals.icu."
         )
 
     # 2) Periodo outdoor-only
@@ -1292,7 +1327,7 @@ def coach_process_message(message):
             date_text = ", ".join(d.strftime('%d/%m') for d in dates)
             response = f"Segnato: niente allenamento il **{date_text}**."
             if deleted:
-                response += f" Ho eliminato {len(deleted)} allenamenti e ripianificato i giorni successivi ({len(created)} nuovi)."
+                response += f" Ho eliminato {len(deleted)} allenamenti e preparato in anteprima i giorni successivi ({len(plan)} nuovi)."
             else:
                 response += " Ho adattato il calendario successivo senza sovrascrivere gli allenamenti già presenti."
             if failed:
@@ -1310,7 +1345,7 @@ def coach_process_message(message):
         start = st.session_state.coach_start_date or date.today()
         _, state, created, skipped = replan_after_changes(start)
         responses.append(
-            f"Fatto. Ho controllato i prossimi {st.session_state.coach_plan_horizon} giorni e ho creato {len(created)} allenamenti mancanti. "
+            f"Fatto. Ho controllato i prossimi {st.session_state.coach_plan_horizon} giorni e preparato {len(plan)} allenamenti mancanti in anteprima. "
             f"Stato attuale: **{state_label(state)}**."
         )
 
@@ -1418,9 +1453,8 @@ coach_status = coach_state(
 
 # Se il blocco del Coach è già stato avviato, mantiene automaticamente
 # una finestra futura di circa 1.5 settimane senza sovrascrivere gli eventi esistenti.
-if st.session_state.coach_start_date:
-    ensure_coach_horizon()
-    events = st.session_state.events_cache or []
+# Il Coach non carica più automaticamente gli allenamenti su Intervals.icu:
+# prima prepara una preview, poi l'utente decide quando inviarla.
 
 
 # =========================
@@ -1856,181 +1890,108 @@ elif page == "Calendario":
 
     show_page_title(
         "Calendario",
-        "La tua settimana di allenamento sincronizzata con Intervals.icu."
+        "Vista mensile dei tuoi allenamenti, sincronizzata con Intervals.icu."
     )
 
-    current_monday = get_monday(
-        date.today()
-    )
+    # Stato mese corrente
+    if "calendar_month_offset" not in st.session_state:
+        st.session_state.calendar_month_offset = 0
 
-    selected_monday, selected_sunday = (
-        get_calendar_week()
-    )
+    today = date.today()
+    first_of_month = date(today.year, today.month, 1)
+    month_date = (first_of_month + timedelta(days=32 * st.session_state.calendar_month_offset)).replace(day=1)
+    month_names = [
+        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+    ]
 
-    nav1, nav2, nav3 = st.columns(
-        [1, 3, 1]
-    )
-
+    nav1, nav2, nav3 = st.columns([1, 4, 1])
     with nav1:
-        if st.button(
-            "← Settimana precedente",
-            key="previous_week"
-        ):
-            st.session_state.calendar_week_offset -= 1
+        if st.button("← Mese precedente", key="calendar_prev_month"):
+            st.session_state.calendar_month_offset -= 1
+            st.session_state.selected_event = None
             st.rerun()
-
     with nav2:
-
-        if selected_monday == current_monday:
-
-            st.markdown(
-                "<h3 style='text-align:center;'>"
-                "Settimana corrente"
-                "</h3>",
-                unsafe_allow_html=True
-            )
-
-        else:
-
-            st.markdown(
-                f"<h3 style='text-align:center;'>"
-                f"{selected_monday.strftime('%d/%m')} — "
-                f"{selected_sunday.strftime('%d/%m/%Y')}"
-                f"</h3>",
-                unsafe_allow_html=True
-            )
-
+        st.markdown(
+            f"<h2 style='text-align:center;margin:0'>{month_names[month_date.month-1]} {month_date.year}</h2>",
+            unsafe_allow_html=True
+        )
     with nav3:
-
-        if st.button(
-            "Settimana successiva →",
-            key="next_week"
-        ):
-            st.session_state.calendar_week_offset += 1
+        if st.button("Mese successivo →", key="calendar_next_month"):
+            st.session_state.calendar_month_offset += 1
+            st.session_state.selected_event = None
             st.rerun()
 
-    st.caption(
-        f"Dal {selected_monday.strftime('%d/%m/%Y')} "
-        f"al {selected_sunday.strftime('%d/%m/%Y')}"
-    )
+    st.write("")
+    if st.button("📍 Torna a oggi", key="calendar_today"):
+        st.session_state.calendar_month_offset = 0
+        st.rerun()
 
-    st.divider()
-
-    if st.button(
-        "🔄 Aggiorna calendario",
-        key="refresh_calendar"
-    ):
+    if st.button("🔄 Aggiorna calendario", key="refresh_calendar_month"):
         refresh_events()
         st.rerun()
 
-    week_events = []
-
+    # Raggruppa gli allenamenti per giorno
+    events_by_day = {}
     for event in events:
+        start = parse_event_datetime(event.get("start_date_local"))
+        if start and start.year == month_date.year and start.month == month_date.month:
+            events_by_day.setdefault(start.date(), []).append(event)
 
-        start = parse_event_datetime(
-            event.get("start_date_local")
-        )
+    import calendar as pycalendar
+    cal = pycalendar.Calendar(firstweekday=0)
+    weeks = cal.monthdatescalendar(month_date.year, month_date.month)
 
-        if not start:
-            continue
+    st.markdown("""
+    <style>
+    .month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:10px; }
+    .day-head { text-align:center; font-weight:700; padding:8px 2px; color:#374151; }
+    .day-cell { min-height:115px; border:1px solid #e5e7eb; border-radius:10px; padding:8px; background:#fff; }
+    .day-out { background:#f9fafb; color:#9ca3af; }
+    .day-number { font-weight:700; font-size:14px; margin-bottom:6px; }
+    .today-dot { display:inline-block; border-radius:50%; width:25px; height:25px; line-height:25px; text-align:center; background:#111827; color:white; }
+    .event-dot { margin:4px 0; padding:5px 7px; border-radius:7px; background:#f3f4f6; font-size:12px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .event-dot.completed { background:#ecfdf5; }
+    </style>
+    """, unsafe_allow_html=True)
 
-        if (
-            selected_monday
-            <= start.date()
-            <= selected_sunday
-        ):
-            week_events.append(event)
+    headers = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
+    header_html = "<div class='month-grid'>" + "".join(f"<div class='day-head'>{h}</div>" for h in headers) + "</div>"
+    st.markdown(header_html, unsafe_allow_html=True)
 
-    week_events.sort(
-        key=lambda x: x.get(
-            "start_date_local",
-            ""
-        )
-    )
-
-    if not week_events:
-
-        st.info(
-            "Nessun allenamento programmato "
-            "in questa settimana."
-        )
-
-    else:
-
-        for event in week_events:
-
-            start = parse_event_datetime(
-                event.get("start_date_local")
-            )
-
-            duration = get_event_duration(event)
-
-            completed = is_event_completed(event)
-
-            with st.container(border=True):
-
-                col1, col2, col3, col4 = st.columns(
-                    [1.5, 3.5, 1.5, 1]
-                )
-
-                with col1:
-
-                    if start:
-
-                        prefix = "✅ " if completed else ""
-
-                        st.markdown(
-                            f"### {prefix}{start.strftime('%a')}"
-                        )
-
-                        st.caption(
-                            start.strftime(
-                                "%d/%m/%Y"
-                            )
-                        )
-
-                        st.caption(
-                            start.strftime("%H:%M")
-                        )
-
-                with col2:
-
-                    prefix = "✅ " if completed else ""
-
-                    st.markdown(
-                        f"**{prefix}{event.get('name', 'Allenamento')}**"
-                    )
-
-                    st.caption(
-                        event.get(
-                            "type",
-                            "Ride"
-                        )
-                    )
-
-                with col3:
-
-                    st.write(
-                        f"⏱️ {duration} min"
-                    )
-
+    # HTML griglia + pulsanti Streamlit sotto ogni cella con eventi.
+    for week_index, week in enumerate(weeks):
+        cols = st.columns(7, gap="small")
+        for col_index, day in enumerate(week):
+            with cols[col_index]:
+                in_month = day.month == month_date.month
+                day_events = sorted(events_by_day.get(day, []), key=lambda e: e.get("start_date_local", ""))
+                number_html = f"<span class='{'today-dot' if day == today else ''}'>{day.day}</span>"
+                if not in_month:
+                    st.markdown(f"<div style='color:#9ca3af;font-weight:700'>{number_html}</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<div style='font-weight:700;margin-bottom:4px'>{number_html}</div>", unsafe_allow_html=True)
+                for ev_index, event in enumerate(day_events):
+                    completed = is_event_completed(event)
+                    icon = "✓" if completed else "•"
+                    start_dt = parse_event_datetime(event.get("start_date_local"))
+                    time_text = start_dt.strftime("%H:%M") if start_dt else ""
+                    name = event.get("name", "Allenamento")
+                    short_name = name.replace("Indoor • ", "🏠 ").replace("Outdoor • ", "🌳 ")
                     if completed:
-                        st.success(
-                            "Completato"
-                        )
-
-                with col4:
-
-                    if st.button(
-                        "Apri",
-                        key=f"calendar_{event.get('id')}"
-                    ):
-
-                        st.session_state.selected_event = (
-                            event.get("id")
-                        )
-
+                        short_name = "✓ " + short_name
+                    st.markdown(
+                        f"<div class='event-dot {'completed' if completed else ''}' title='{name}'>{time_text} {short_name}</div>",
+                        unsafe_allow_html=True
+                    )
+                    if st.button("Apri", key=f"month_event_{event.get('id')}_{week_index}_{ev_index}", use_container_width=True):
+                        st.session_state.selected_event = event.get("id")
                         st.rerun()
+                if not day_events and in_month:
+                    st.caption(" ")
+
+    st.divider()
+    st.caption("• = allenamento programmato   ✓ = completato   🏠 = Indoor   🌳 = Outdoor")
 
 
 # =========================
@@ -2244,6 +2205,27 @@ elif page == "AI Coach":
         st.session_state.coach_chat.append(("assistant", response))
         st.rerun()
 
+    preview_data = st.session_state.get("coach_preview")
+    if preview_data:
+        st.divider()
+        st.subheader("👀 Anteprima allenamenti del Coach")
+        st.caption("Il Coach li ha preparati ma NON li ha ancora caricati su Intervals.icu.")
+        for workout in preview_data["plan"]:
+            icon = "🏠" if workout["mode"] == "Indoor" else "🌳"
+            with st.container(border=True):
+                st.markdown(f"### {icon} {workout['name']}")
+                st.write(f"**{COACH_WEEKDAY_MAP[workout['date'].weekday()]} {workout['date'].strftime('%d/%m/%Y')}** • {workout['duration']} min")
+                st.markdown(f"<div class='workout-description'>{workout['description']}</div>", unsafe_allow_html=True)
+        if preview_data["skipped"]:
+            skipped_text = ", ".join(d.strftime("%d/%m") for d in preview_data["skipped"])
+            st.info(f"Giorni già occupati e quindi non modificati: {skipped_text}")
+        if st.button("🚀 Carica questi allenamenti su Intervals.icu", key="upload_coach_preview", use_container_width=True):
+            created, skipped = upload_coach_preview()
+            st.success(f"Caricati {len(created)} allenamenti su Intervals.icu.")
+            if skipped:
+                st.info("Alcuni giorni erano già occupati e sono stati saltati.")
+            st.rerun()
+
     st.divider()
     st.subheader("⚙️ Regole attuali del piano")
 
@@ -2280,7 +2262,7 @@ elif page == "AI Coach":
         start = st.session_state.coach_start_date or date.today()
         _, state, created, _ = replan_after_changes(start)
         st.success(
-            f"Calendario controllato: creati {len(created)} allenamenti mancanti. Stato: {state_label(state)}."
+            f"Anteprima pronta: {len(st.session_state.get('coach_preview', {}).get('plan', []))} allenamenti da controllare. Stato: {state_label(state)}."
         )
 
     if st.session_state.coach_chat:
