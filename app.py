@@ -11,6 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
 # ============================================================
 # CSS
 # ============================================================
@@ -18,37 +19,18 @@ st.set_page_config(
 st.markdown("""
 <style>
 
-    /* =========================
-       PAGINA PRINCIPALE
-       ========================= */
+    /* ========================================================
+       APP
+       ======================================================== */
 
     .stApp {
         background-color: #f5f7fa;
         color: #111827;
     }
 
-    .main {
-        color: #111827;
-    }
-
-    .main p,
-    .main span,
-    .main label {
-        color: #111827;
-    }
-
-    h1, h2, h3, h4 {
-        color: #111827 !important;
-    }
-
-    .main small,
-    .main .stCaption {
-        color: #6b7280 !important;
-    }
-
-    /* =========================
+    /* ========================================================
        SIDEBAR
-       ========================= */
+       ======================================================== */
 
     section[data-testid="stSidebar"] {
         background-color: #111827;
@@ -58,48 +40,72 @@ st.markdown("""
         color: white !important;
     }
 
+    /* Input numerici */
     section[data-testid="stSidebar"] input {
         color: #111827 !important;
         background-color: white !important;
     }
 
-    section[data-testid="stSidebar"] textarea {
-        color: #111827 !important;
+    /* Selectbox */
+    section[data-testid="stSidebar"]
+    div[data-baseweb="select"] > div {
         background-color: white !important;
+        color: #111827 !important;
     }
 
-    section[data-testid="stSidebar"] div[data-baseweb="select"] {
+    section[data-testid="stSidebar"]
+    div[data-baseweb="select"] span {
+        color: #111827 !important;
+    }
+
+    /* Radio */
+    section[data-testid="stSidebar"]
+    div[role="radiogroup"] label {
         color: white !important;
     }
 
-    section[data-testid="stSidebar"] div[data-baseweb="select"] * {
-        color: #111827 !important;
+    section[data-testid="stSidebar"]
+    div[role="radiogroup"] label p {
+        color: white !important;
     }
 
-    section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
+    /* Multiselect */
+    section[data-testid="stSidebar"]
+    div[data-baseweb="select"] {
         background-color: white !important;
     }
 
-    /* =========================
-       HEADER
-       ========================= */
+    /* ========================================================
+       TITOLI
+       ======================================================== */
 
-    .title {
-        font-size: 38px;
-        font-weight: 800;
+    h1,
+    h2,
+    h3,
+    h4 {
         color: #111827 !important;
-        margin-bottom: 0;
     }
 
-    .subtitle {
+    /* ========================================================
+       HEADER
+       ======================================================== */
+
+    .main-title {
+        font-size: 38px;
+        font-weight: 800;
+        color: #111827;
+        margin-bottom: 4px;
+    }
+
+    .main-subtitle {
         font-size: 16px;
-        color: #6b7280 !important;
+        color: #6b7280;
         margin-bottom: 25px;
     }
 
-    /* =========================
+    /* ========================================================
        METRICHE
-       ========================= */
+       ======================================================== */
 
     [data-testid="stMetricLabel"] {
         color: #4b5563 !important;
@@ -113,72 +119,29 @@ st.markdown("""
         color: #4b5563 !important;
     }
 
-    /* =========================
-       DESCRIZIONI
-       ========================= */
+    /* ========================================================
+       DESCRIZIONE WORKOUT
+       ======================================================== */
 
     .workout-description {
         color: #374151 !important;
-        line-height: 1.6;
+        line-height: 1.7;
     }
 
-    .workout-description p,
-    .workout-description li {
-        color: #374151 !important;
-    }
-
-    .coach-text {
-        color: #374151 !important;
-        line-height: 1.6;
-    }
-
-    /* =========================
-       BOTTONI
-       ========================= */
-
-    .stButton > button {
-        color: #111827 !important;
-        background-color: white !important;
-        border: 1px solid #d1d5db !important;
-        border-radius: 10px !important;
-        font-weight: 600 !important;
-    }
-
-    .stButton > button:hover {
-        border-color: #111827 !important;
+    .workout-description strong {
         color: #111827 !important;
     }
 
-    /* =========================
-       INPUT
-       ========================= */
-
-    input {
-        color: #111827 !important;
-    }
-
-    /* =========================
-       SELECTBOX
-       ========================= */
-
-    div[data-baseweb="select"] {
-        color: #111827 !important;
-    }
-
-    div[data-baseweb="select"] > div {
-        color: #111827 !important;
-        background-color: white !important;
-    }
-
-    /* =========================
+    /* ========================================================
        FOOTER
-       ========================= */
+       ======================================================== */
 
     .footer {
         color: #9ca3af !important;
         font-size: 12px;
         text-align: center;
-        margin-top: 35px;
+        margin-top: 40px;
+        padding-bottom: 20px;
     }
 
 </style>
@@ -191,26 +154,25 @@ st.markdown("""
 
 with st.sidebar:
 
-    # LOGO / TITOLO
-    st.markdown("## 🚴 Luca Cycling Coach")
-    st.caption("Personal Cycling Coach")
+    # --------------------------------------------------------
+    # LOGO
+    # --------------------------------------------------------
 
-    st.markdown("---")
-
-    # MENU
     st.markdown(
-        """
-        <div style="
-            color:#9ca3af !important;
-            font-size:12px;
-            font-weight:600;
-            margin-bottom:8px;
-        ">
-            MENU
-        </div>
-        """,
-        unsafe_allow_html=True
+        "## 🚴 Luca Cycling Coach"
     )
+
+    st.caption(
+        "Personal Cycling Coach"
+    )
+
+    st.divider()
+
+    # --------------------------------------------------------
+    # MENU
+    # --------------------------------------------------------
+
+    st.markdown("**MENU**")
 
     pagina = st.radio(
         "Navigazione",
@@ -220,62 +182,28 @@ with st.sidebar:
             "🚴 Allenamenti",
             "📊 Analisi",
             "🧠 AI Coach",
-            "👤 Profilo"
+            "👤 Profilo",
         ],
-        label_visibility="collapsed"
+        index=0,
+        label_visibility="collapsed",
+        key="main_navigation",
     )
 
-    # MENU
-    st.markdown(
-        """
-        <div style="
-            color:#9ca3af !important;
-            font-size:12px;
-            font-weight:600;
-            margin-bottom:8px;
-        ">
-            MENU
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.divider()
 
-    pagina = st.radio(
-        "Navigazione",
-        [
-            "🏠 Dashboard",
-            "📅 Calendario",
-            "🚴 Allenamenti",
-            "📊 Analisi",
-            "🧠 AI Coach",
-            "👤 Profilo"
-        ],
-        label_visibility="collapsed"
-    )
-
-    st.markdown("---")
-
+    # --------------------------------------------------------
     # PROFILO
-    st.markdown(
-        """
-        <div style="
-            color:#9ca3af !important;
-            font-size:12px;
-            font-weight:600;
-            margin-bottom:10px;
-        ">
-            PROFILO
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # --------------------------------------------------------
+
+    st.markdown("**PROFILO**")
 
     weight = st.number_input(
         "Peso (kg)",
         min_value=30.0,
         max_value=150.0,
         value=50.0,
-        step=0.5
+        step=0.5,
+        key="profile_weight",
     )
 
     ftp = st.number_input(
@@ -283,7 +211,8 @@ with st.sidebar:
         min_value=50,
         max_value=500,
         value=160,
-        step=1
+        step=1,
+        key="profile_ftp",
     )
 
     fc_max = st.number_input(
@@ -291,7 +220,8 @@ with st.sidebar:
         min_value=100,
         max_value=230,
         value=190,
-        step=1
+        step=1,
+        key="profile_hrmax",
     )
 
     obiettivo = st.selectbox(
@@ -300,8 +230,9 @@ with st.sidebar:
             "Migliorare la forma generale",
             "Migliorare in salita",
             "Aumentare FTP",
-            "Preparare una gara"
-        ]
+            "Preparare una gara",
+        ],
+        key="profile_goal",
     )
 
     giorni = st.multiselect(
@@ -313,107 +244,122 @@ with st.sidebar:
             "Giovedì",
             "Venerdì",
             "Sabato",
-            "Domenica"
+            "Domenica",
         ],
         default=[
             "Lunedì",
             "Martedì",
             "Giovedì",
             "Venerdì",
-            "Sabato"
-        ]
+            "Sabato",
+        ],
+        key="profile_days",
     )
 
-    st.markdown("---")
+    st.divider()
 
+    st.caption(
+        "Luca Cycling Coach · Versione 0.1"
+    )
+
+
+# ============================================================
+# DATI DI BASE
+# ============================================================
+
+watts_per_kg = ftp / weight
+
+
+# ============================================================
+# FUNZIONE FOOTER
+# ============================================================
+
+def show_footer():
     st.markdown(
         """
-        <div style="
-            text-align:center;
-            color:#6b7280 !important;
-            font-size:11px;
-            padding:5px 0;
-        ">
-            Luca Cycling Coach<br>
-            Versione 0.1
+        <div class="footer">
+            Luca Cycling Coach · Versione 0.1 ·
+            Costruiamo il tuo coach personale 🚴
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
 
 # ============================================================
-# PAGINA: DASHBOARD
+# DASHBOARD
 # ============================================================
 
-if pagina == "🏠 Dashboard":
+def show_dashboard():
 
-    # ========================================================
-    # CALCOLI
-    # ========================================================
-
-    watts_per_kg = ftp / weight
-
-    # ========================================================
+    # --------------------------------------------------------
     # HEADER
-    # ========================================================
+    # --------------------------------------------------------
 
     st.markdown(
-        '<div class="title">Buongiorno, Luca 👋</div>',
-        unsafe_allow_html=True
+        '<div class="main-title">Buongiorno, Luca 👋</div>',
+        unsafe_allow_html=True,
     )
 
     st.markdown(
-        '<div class="subtitle">Ecco il tuo stato di allenamento.</div>',
-        unsafe_allow_html=True
+        '<div class="main-subtitle">'
+        'Ecco il tuo stato di allenamento.'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
-    # ========================================================
+    # --------------------------------------------------------
     # METRICHE
-    # ========================================================
+    # --------------------------------------------------------
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.metric(
-            label="⚡ FTP",
-            value=f"{ftp} W",
-            delta=f"{watts_per_kg:.2f} W/kg"
+            "⚡ FTP",
+            f"{ftp} W",
+            f"{watts_per_kg:.2f} W/kg",
         )
 
     with col2:
         st.metric(
-            label="💪 Fitness",
-            value="—"
+            "💪 Fitness",
+            "—",
         )
 
     with col3:
         st.metric(
-            label="😴 Fatigue",
-            value="—"
+            "😴 Fatigue",
+            "—",
         )
 
     with col4:
         st.metric(
-            label="📈 Form",
-            value="—"
+            "📈 Form",
+            "—",
         )
 
-    # ========================================================
+    # --------------------------------------------------------
     # ALLENAMENTO DI OGGI
-    # ========================================================
+    # --------------------------------------------------------
 
     st.divider()
 
     st.markdown("## 🏋️ Allenamento di oggi")
 
-    today_col1, today_col2 = st.columns([2, 1])
+    today_col1, today_col2 = st.columns(
+        [2, 1]
+    )
 
     with today_col1:
 
-        st.subheader("Z2 Endurance")
+        st.subheader(
+            "Z2 Endurance"
+        )
 
-        st.write("**Endurance aerobica — 60 minuti**")
+        st.write(
+            "**Endurance aerobica — 60 minuti**"
+        )
 
         st.markdown(
             """
@@ -427,12 +373,12 @@ if pagina == "🏠 Dashboard":
 
             <strong>Obiettivo</strong><br><br>
 
-            Costruire e mantenere una buona base aerobica
-            lavorando a intensità controllata.
+            Costruire e mantenere una buona base
+            aerobica lavorando a intensità controllata.
 
             </div>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
     with today_col2:
@@ -445,24 +391,32 @@ if pagina == "🏠 Dashboard":
 
         if st.button(
             "▶️ Apri allenamento",
-            use_container_width=True
+            use_container_width=True,
+            key="open_today_workout",
         ):
-            st.session_state["show_workout"] = True
+            st.session_state[
+                "show_workout"
+            ] = True
 
-    # ========================================================
-    # DETTAGLI ALLENAMENTO
-    # ========================================================
+    # --------------------------------------------------------
+    # DETTAGLI
+    # --------------------------------------------------------
 
-    if st.session_state.get("show_workout", False):
+    if st.session_state.get(
+        "show_workout",
+        False,
+    ):
 
         st.divider()
 
-        st.subheader("📋 Dettagli allenamento")
+        st.subheader(
+            "📋 Dettagli allenamento"
+        )
 
         st.write(
             "Mantieni un'intensità comoda e costante. "
-            "L'obiettivo non è spingere, ma accumulare tempo "
-            "aerobico di qualità."
+            "L'obiettivo non è spingere, ma accumulare "
+            "tempo aerobico di qualità."
         )
 
         st.write("**Indicazioni:**")
@@ -472,67 +426,117 @@ if pagina == "🏠 Dashboard":
         st.write("• Evita picchi di intensità")
         st.write("• Mantieni una cadenza naturale")
 
-    # ========================================================
-    # SETTIMANA
-    # ========================================================
+    # --------------------------------------------------------
+    # PIANO SETTIMANALE
+    # --------------------------------------------------------
 
     st.divider()
 
-    st.markdown("## 📅 Piano della settimana")
+    st.markdown(
+        "## 📅 Piano della settimana"
+    )
 
     days_plan = [
-        ("Lunedì", "Z2 Endurance", "1h 30m", "🟢"),
-        ("Martedì", "Sweet Spot", "1h 30m", "🟠"),
-        ("Mercoledì", "Riposo", "—", "⚪"),
-        ("Giovedì", "Intervalli", "1h", "🔴"),
-        ("Venerdì", "Recupero", "1h", "🔵"),
-        ("Sabato", "Endurance + salita", "3h", "🟠"),
-        ("Domenica", "Riposo", "—", "⚪"),
+        (
+            "Lunedì",
+            "Z2 Endurance",
+            "1h 30m",
+            "🟢",
+        ),
+        (
+            "Martedì",
+            "Sweet Spot",
+            "1h 30m",
+            "🟠",
+        ),
+        (
+            "Mercoledì",
+            "Riposo",
+            "—",
+            "⚪",
+        ),
+        (
+            "Giovedì",
+            "Intervalli",
+            "1h",
+            "🔴",
+        ),
+        (
+            "Venerdì",
+            "Recupero",
+            "1h",
+            "🔵",
+        ),
+        (
+            "Sabato",
+            "Endurance + salita",
+            "3h",
+            "🟠",
+        ),
+        (
+            "Domenica",
+            "Riposo",
+            "—",
+            "⚪",
+        ),
     ]
 
     week_columns = st.columns(7)
 
-    for column, workout in zip(week_columns, days_plan):
+    for column, workout in zip(
+        week_columns,
+        days_plan,
+    ):
 
         day, name, duration, icon = workout
 
         with column:
 
-            st.markdown(f"### {icon}")
+            st.markdown(
+                f"### {icon}"
+            )
 
-            st.write(f"**{day}**")
+            st.write(
+                f"**{day}**"
+            )
 
             st.write(name)
 
             st.caption(duration)
 
             if name != "Riposo":
+
                 st.button(
                     "Dettagli",
                     key=f"details_{day}",
-                    use_container_width=True
+                    use_container_width=True,
                 )
 
-    # ========================================================
+    # --------------------------------------------------------
     # COACH
-    # ========================================================
+    # --------------------------------------------------------
 
     st.divider()
 
-    st.markdown("## 🧠 Luca Cycling Coach")
+    st.markdown(
+        "## 🧠 Luca Cycling Coach"
+    )
 
-    coach_col1, coach_col2 = st.columns([2, 1])
+    coach_col1, coach_col2 = st.columns(
+        [2, 1]
+    )
 
     with coach_col1:
 
         st.write(
-            "Il coach analizzerà progressivamente i tuoi allenamenti "
-            "e costruirà il piano in base alla tua risposta al carico."
+            "Il coach analizzerà progressivamente "
+            "i tuoi allenamenti e costruirà il piano "
+            "in base alla tua risposta al carico."
         )
 
         st.write(
-            "Quando collegheremo i dati reali, questa sezione potrà "
-            "valutare automaticamente:"
+            "Quando collegheremo i dati reali, "
+            "questa sezione potrà valutare automaticamente:"
         )
 
         st.write("• carico di allenamento")
@@ -551,154 +555,354 @@ if pagina == "🏠 Dashboard":
             "🔄 Ripianificazione automatica"
         )
 
-    # ========================================================
+    # --------------------------------------------------------
     # PROGRESSI
-    # ========================================================
+    # --------------------------------------------------------
 
     st.divider()
 
-    st.markdown("## 📊 Progressi")
+    st.markdown(
+        "## 📊 Progressi"
+    )
 
     progress1, progress2, progress3 = st.columns(3)
 
     with progress1:
         st.metric(
             "Tempo settimanale",
-            "—"
+            "—",
         )
 
     with progress2:
         st.metric(
             "Carico settimanale",
-            "—"
+            "—",
         )
 
     with progress3:
         st.metric(
             "Allenamenti completati",
-            "—"
+            "—",
         )
 
 
 # ============================================================
-# PAGINA: CALENDARIO
+# CALENDARIO
 # ============================================================
 
-elif pagina == "📅 Calendario":
+def show_calendar():
 
     st.title("📅 Calendario")
 
     st.write(
-        "Qui costruiremo il calendario completo degli allenamenti."
+        "Il tuo calendario di allenamento."
     )
+
+    st.divider()
+
+    st.subheader(
+        "Questa settimana"
+    )
+
+    calendar_data = [
+        ("Lunedì", "Z2 Endurance", "1h 30m", "🟢"),
+        ("Martedì", "Sweet Spot", "1h 30m", "🟠"),
+        ("Mercoledì", "Riposo", "—", "⚪"),
+        ("Giovedì", "Intervalli", "1h", "🔴"),
+        ("Venerdì", "Recupero", "1h", "🔵"),
+        ("Sabato", "Endurance + salita", "3h", "🟠"),
+        ("Domenica", "Riposo", "—", "⚪"),
+    ]
+
+    for day, name, duration, icon in calendar_data:
+
+        col1, col2, col3 = st.columns(
+            [1, 3, 1]
+        )
+
+        with col1:
+            st.write(f"**{day}**")
+
+        with col2:
+            st.write(f"{icon} {name}")
+
+        with col3:
+            st.write(duration)
+
+        st.divider()
 
     st.info(
-        "🚧 In sviluppo: calendario con allenamenti giornalieri, "
-        "durata, intensità e stato di completamento."
+        "🚧 Prossimo step: calendario interattivo "
+        "collegato agli allenamenti reali."
     )
 
 
 # ============================================================
-# PAGINA: ALLENAMENTI
+# ALLENAMENTI
 # ============================================================
 
-elif pagina == "🚴 Allenamenti":
+def show_workouts():
 
     st.title("🚴 Allenamenti")
 
     st.write(
-        "Qui troverai tutti gli allenamenti programmati."
+        "Tutti gli allenamenti del tuo piano."
     )
+
+    st.divider()
+
+    workouts = [
+        (
+            "🟢",
+            "Z2 Endurance",
+            "Base aerobica",
+            "60 min",
+        ),
+        (
+            "🟠",
+            "Sweet Spot",
+            "Sviluppo della FTP",
+            "90 min",
+        ),
+        (
+            "🔴",
+            "Intervalli",
+            "Stimolo VO2max",
+            "60 min",
+        ),
+        (
+            "🔵",
+            "Recupero",
+            "Recupero attivo",
+            "60 min",
+        ),
+        (
+            "🟠",
+            "Endurance + salita",
+            "Resistenza e climbing",
+            "3 h",
+        ),
+    ]
+
+    for icon, name, goal, duration in workouts:
+
+        col1, col2, col3 = st.columns(
+            [1, 4, 1]
+        )
+
+        with col1:
+            st.markdown(
+                f"## {icon}"
+            )
+
+        with col2:
+            st.write(
+                f"**{name}**"
+            )
+            st.caption(goal)
+
+        with col3:
+            st.write(duration)
+
+        st.divider()
 
     st.info(
-        "🚧 In sviluppo: libreria degli allenamenti e pagina "
-        "dettagliata per ogni workout."
+        "🚧 Prossimo step: pagina dettagliata "
+        "per ogni allenamento."
     )
 
 
 # ============================================================
-# PAGINA: ANALISI
+# ANALISI
 # ============================================================
 
-elif pagina == "📊 Analisi":
+def show_analysis():
 
     st.title("📊 Analisi")
 
     st.write(
-        "Qui analizzeremo le tue prestazioni e la tua progressione."
+        "Qui analizzeremo le tue prestazioni."
+    )
+
+    st.divider()
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "FTP",
+            f"{ftp} W",
+        )
+
+    with col2:
+        st.metric(
+            "FTP relativo",
+            f"{watts_per_kg:.2f} W/kg",
+        )
+
+    with col3:
+        st.metric(
+            "FC max",
+            f"{fc_max} bpm",
+        )
+
+    st.divider()
+
+    st.subheader(
+        "📈 Progressione"
     )
 
     st.info(
-        "🚧 In sviluppo: Fitness, Fatigue, Form, carico, "
-        "FTP, zone e progressione."
+        "🚧 Qui aggiungeremo i grafici reali "
+        "di FTP, carico, Fitness, Fatigue e Form."
     )
 
 
 # ============================================================
-# PAGINA: AI COACH
+# AI COACH
 # ============================================================
 
-elif pagina == "🧠 AI Coach":
+def show_ai_coach():
 
     st.title("🧠 AI Coach")
 
     st.write(
-        "Il tuo coach personale analizzerà i dati degli allenamenti "
-        "e ti aiuterà a prendere decisioni sul piano."
+        "Il tuo coach personale."
     )
+
+    st.divider()
 
     st.info(
-        "🚧 In sviluppo: analisi automatica degli allenamenti, "
-        "feedback e ripianificazione."
+        "🤖 **Il coach sta preparando il tuo piano.**\n\n"
+        "Quando collegheremo i dati reali degli allenamenti, "
+        "potrà analizzare le tue sessioni, valutare il carico "
+        "e suggerire modifiche al piano."
+    )
+
+    st.subheader(
+        "🎯 Obiettivo attuale"
+    )
+
+    st.write(
+        obiettivo
+    )
+
+    st.subheader(
+        "💬 Prossimamente"
+    )
+
+    st.write(
+        "• Analisi automatica degli allenamenti"
+    )
+
+    st.write(
+        "• Feedback dopo ogni sessione"
+    )
+
+    st.write(
+        "• Adattamento del carico"
+    )
+
+    st.write(
+        "• Ripianificazione automatica"
     )
 
 
 # ============================================================
-# PAGINA: PROFILO
+# PROFILO
 # ============================================================
 
-elif pagina == "👤 Profilo":
+def show_profile():
 
     st.title("👤 Profilo")
 
     st.write(
-        "Qui potrai gestire i dati utilizzati dal tuo coach."
+        "I tuoi dati ciclistici."
     )
 
-    st.markdown("### 🚴 Dati ciclistici")
+    st.divider()
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.metric("Peso", f"{weight:.1f} kg")
-        st.metric("FTP", f"{ftp} W")
+
+        st.metric(
+            "Peso",
+            f"{weight:.1f} kg",
+        )
+
+        st.metric(
+            "FTP",
+            f"{ftp} W",
+        )
 
     with col2:
-        st.metric("FTP relativo", f"{ftp / weight:.2f} W/kg")
-        st.metric("FC max", f"{fc_max} bpm")
 
-    st.markdown("### 🎯 Obiettivo")
+        st.metric(
+            "FTP relativo",
+            f"{watts_per_kg:.2f} W/kg",
+        )
 
-    st.write(obiettivo)
+        st.metric(
+            "FC max",
+            f"{fc_max} bpm",
+        )
 
-    st.markdown("### 📅 Giorni disponibili")
+    st.divider()
+
+    st.subheader(
+        "🎯 Obiettivo"
+    )
+
+    st.write(
+        obiettivo
+    )
+
+    st.subheader(
+        "📅 Giorni disponibili"
+    )
 
     if giorni:
-        st.write(", ".join(giorni))
+        st.write(
+            ", ".join(giorni)
+        )
     else:
-        st.warning("Nessun giorno selezionato.")
+        st.warning(
+            "Nessun giorno selezionato."
+        )
+
+
+# ============================================================
+# ROUTING DELLE PAGINE
+# ============================================================
+
+if pagina == "🏠 Dashboard":
+
+    show_dashboard()
+
+elif pagina == "📅 Calendario":
+
+    show_calendar()
+
+elif pagina == "🚴 Allenamenti":
+
+    show_workouts()
+
+elif pagina == "📊 Analisi":
+
+    show_analysis()
+
+elif pagina == "🧠 AI Coach":
+
+    show_ai_coach()
+
+elif pagina == "👤 Profilo":
+
+    show_profile()
 
 
 # ============================================================
 # FOOTER
 # ============================================================
 
-st.markdown(
-    """
-    <div class="footer">
-        Luca Cycling Coach · Versione 0.1 ·
-        Costruiamo il tuo coach personale 🚴
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+show_footer()
