@@ -516,4 +516,4 @@ st.caption(
     f"Peso: {weight:.1f} kg  •  "
     f"FC max: {hr_max} bpm"
 )
-```
+
