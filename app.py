@@ -35,6 +35,7 @@ if "events_cache" not in st.session_state:
 st.markdown(
     """
     <style>
+    /* SFONDO PRINCIPALE */
     .stApp {
         background-color: white;
     }
@@ -48,6 +49,7 @@ st.markdown(
         padding-bottom: 3rem;
     }
 
+    /* TESTO PRINCIPALE */
     h1, h2, h3 {
         color: #111827 !important;
     }
@@ -56,7 +58,44 @@ st.markdown(
         color: #111827;
     }
 
-    /* Pulsanti neri con testo bianco */
+    /* SIDEBAR */
+    [data-testid="stSidebar"] {
+        background-color: #111827 !important;
+    }
+
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] div {
+        color: white !important;
+    }
+
+    /* RADIO SIDEBAR */
+    [data-testid="stSidebar"] [role="radiogroup"] label {
+        color: white !important;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label span {
+        color: white !important;
+    }
+
+    /* INPUT SIDEBAR */
+    [data-testid="stSidebar"] input {
+        color: #111827 !important;
+        background-color: white !important;
+    }
+
+    /* SELECTBOX / INPUT TESTO SIDEBAR */
+    [data-testid="stSidebar"] .stNumberInput input,
+    [data-testid="stSidebar"] .stTextInput input {
+        color: #111827 !important;
+        background-color: white !important;
+    }
+
+    /* PULSANTI NERI CON TESTO BIANCO */
     .stButton > button {
         background-color: #111827 !important;
         color: white !important;
@@ -81,6 +120,7 @@ st.markdown(
         color: white !important;
     }
 
+    /* METRICHE */
     [data-testid="stMetricValue"] {
         color: #111827 !important;
     }
@@ -89,6 +129,7 @@ st.markdown(
         color: #4b5563 !important;
     }
 
+    /* RIQUADRI */
     .workout-card {
         background: white;
         border-radius: 12px;
