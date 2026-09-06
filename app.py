@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 import requests
 from datetime import datetime, date, timedelta
@@ -1857,4 +1856,4 @@ if st.session_state.edit_event is not None:
     show_edit_form(
         st.session_state.edit_event
     )
-```
+
