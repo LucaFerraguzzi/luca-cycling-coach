@@ -197,14 +197,64 @@ section[data-testid="stSidebar"] div[data-baseweb="select"] * {
 
 with st.sidebar:
 
-    st.markdown("## 🚴 Luca Cycling Coach")
-    st.caption("Personal Cycling Coach")
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            padding:10px 0 20px 0;
+        ">
+            <div style="font-size:42px;">🚴</div>
+            <div style="
+                font-size:24px;
+                font-weight:700;
+                color:white;
+            ">
+                Luca Cycling Coach
+            </div>
+            <div style="
+                font-size:13px;
+                color:#9ca3af;
+                margin-top:4px;
+            ">
+                Personal Cycling Coach
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    st.divider()
+    st.markdown("---")
 
-    st.markdown("### 👤 Profilo")
+    # MENU
+    st.markdown(
+        '<div style="color:#9ca3af; font-size:12px; '
+        'font-weight:600; margin-bottom:8px;">MENU</div>',
+        unsafe_allow_html=True
+    )
 
-    weight = st.number_input(
+    pagina = st.radio(
+        "Navigazione",
+        [
+            "🏠 Dashboard",
+            "📅 Calendario",
+            "🚴 Allenamenti",
+            "📊 Analisi",
+            "🧠 AI Coach",
+            "👤 Profilo"
+        ],
+        label_visibility="collapsed"
+    )
+
+    st.markdown("---")
+
+    # PROFILO RAPIDO
+    st.markdown(
+        '<div style="color:#9ca3af; font-size:12px; '
+        'font-weight:600; margin-bottom:10px;">PROFILO</div>',
+        unsafe_allow_html=True
+    )
+
+    peso = st.number_input(
         "Peso (kg)",
         min_value=30.0,
         max_value=150.0,
@@ -220,7 +270,7 @@ with st.sidebar:
         step=1
     )
 
-    hr_max = st.number_input(
+    fc_max = st.number_input(
         "FC max (bpm)",
         min_value=100,
         max_value=230,
@@ -228,25 +278,17 @@ with st.sidebar:
         step=1
     )
 
-    st.divider()
-
-    st.markdown("### 🎯 Obiettivo")
-
-    goal = st.selectbox(
-        "Obiettivo principale",
+    obiettivo = st.selectbox(
+        "Obiettivo",
         [
             "Migliorare la forma generale",
             "Migliorare in salita",
             "Aumentare FTP",
-            "Preparare una gara",
+            "Preparare una gara"
         ]
     )
 
-    st.divider()
-
-    st.markdown("### 📅 Disponibilità")
-
-    available_days = st.multiselect(
+    giorni = st.multiselect(
         "Giorni disponibili",
         [
             "Lunedì",
@@ -255,21 +297,57 @@ with st.sidebar:
             "Giovedì",
             "Venerdì",
             "Sabato",
-            "Domenica",
+            "Domenica"
         ],
         default=[
             "Lunedì",
             "Martedì",
             "Giovedì",
             "Venerdì",
-            "Sabato",
+            "Sabato"
         ]
     )
 
-    st.divider()
+    st.markdown("---")
 
-    st.caption("Luca Cycling Coach")
-    st.caption("Versione 0.1")
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            color:#6b7280;
+            font-size:11px;
+            padding:5px 0;
+        ">
+            Luca Cycling Coach<br>
+            Versione 0.1
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+if pagina == "🏠 Dashboard":
+    # qui rimane la dashboard attuale
+    pass
+
+elif pagina == "📅 Calendario":
+    st.title("📅 Calendario")
+    st.info("Il calendario degli allenamenti arriverà qui.")
+
+elif pagina == "🚴 Allenamenti":
+    st.title("🚴 Allenamenti")
+    st.info("Qui troverai tutti gli allenamenti.")
+
+elif pagina == "📊 Analisi":
+    st.title("📊 Analisi")
+    st.info("Qui analizzeremo le tue prestazioni.")
+
+elif pagina == "🧠 AI Coach":
+    st.title("🧠 AI Coach")
+    st.info("Qui arriverà il tuo coach intelligente.")
+
+elif pagina == "👤 Profilo":
+    st.title("👤 Profilo")
+    st.info("Qui potrai gestire il tuo profilo.")
 
 # ============================================================
 # CALCOLI
