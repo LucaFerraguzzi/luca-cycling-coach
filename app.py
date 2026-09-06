@@ -59,14 +59,29 @@ st.markdown("""
     }
 
     section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3,
-    section[data-testid="stSidebar"] h4,
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] label {
-        color: white !important;
-    }
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] h4,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] div,
+section[data-testid="stSidebar"] input,
+section[data-testid="stSidebar"] textarea {
+    color: white !important;
+}
+
+section[data-testid="stSidebar"] input {
+    background-color: #1f2937 !important;
+}
+
+section[data-testid="stSidebar"] div[data-baseweb="select"] {
+    color: white !important;
+}
+
+section[data-testid="stSidebar"] div[data-baseweb="select"] * {
+    color: white !important;
+}
 
     /* =========================
        HEADER
