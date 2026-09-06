@@ -1,33 +1,32 @@
 import streamlit as st
-from datetime import date, timedelta
+import requests
+from datetime import date, datetime, timedelta
 
-# =========================================================
+# ============================================================
 # CONFIGURAZIONE
-# =========================================================
+# ============================================================
 
 st.set_page_config(
     page_title="Luca Cycling Coach",
     page_icon="🚴",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
 
-# =========================================================
-# STILE
-# =========================================================
+# ============================================================
+# CSS
+# ============================================================
 
 st.markdown("""
 <style>
 
+    /* APP */
     .stApp {
         background-color: #f5f7fa;
         color: #111827;
     }
 
-    /* =========================
-       SIDEBAR
-       ========================= */
-
+    /* SIDEBAR */
     section[data-testid="stSidebar"] {
         background-color: #111827;
     }
@@ -36,156 +35,179 @@ st.markdown("""
         color: white !important;
     }
 
-    section[data-testid="stSidebar"] input {
-        color: #111827 !important;
+    section[data-testid="stSidebar"] input,
+    section[data-testid="stSidebar"] textarea,
+    section[data-testid="stSidebar"] select {
         background-color: white !important;
-    }
-
-    section[data-testid="stSidebar"] div[data-baseweb="select"] {
-        background-color: white !important;
-    }
-
-    section[data-testid="stSidebar"] div[data-baseweb="select"] * {
         color: #111827 !important;
     }
 
-    section[data-testid="stSidebar"] div[role="radiogroup"] label {
-        color: white !important;
-    }
-
-    section[data-testid="stSidebar"] div[role="radiogroup"] label p {
-        color: white !important;
-    }
-
-    /* =========================
-       PULSANTI
-       ========================= */
-
-    div.stButton > button {
-        color: white !important;
-        background-color: #111827 !important;
-        border: 1px solid #111827 !important;
-    }
-
-    div.stButton > button p {
-        color: white !important;
-    }
-
-    div.stButton > button:hover {
-        color: white !important;
-        background-color: #1f2937 !important;
-        border-color: #1f2937 !important;
-    }
-
-    div.stButton > button:hover p {
-        color: white !important;
-    }
-
-    div.stButton > button[kind="primary"] {
-        color: white !important;
-        background-color: #111827 !important;
-    }
-
-    div.stButton > button[kind="primary"] p {
-        color: white !important;
-    }
-
-    /* =========================
-       TESTI
-       ========================= */
-
+    /* TITOLI */
     h1, h2, h3, h4 {
         color: #111827 !important;
     }
 
-    .main-title {
-        font-size: 38px;
-        font-weight: 800;
-        color: #111827;
+    p, span, label, div {
+        color: inherit;
+    }
+
+    /* BUTTON */
+    .stButton > button {
+        background-color: #111827 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+    }
+
+    .stButton > button:hover {
+        background-color: #374151 !important;
+        color: white !important;
+    }
+
+    /* CARD */
+    .workout-card {
+        background: white;
+        padding: 20px;
+        border-radius: 14px;
+        border: 1px solid #e5e7eb;
+        margin-bottom: 14px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    .workout-date {
+        font-size: 14px;
+        color: #6b7280;
         margin-bottom: 4px;
     }
 
-    .main-subtitle {
-        font-size: 16px;
-        color: #6b7280;
-        margin-bottom: 25px;
+    .workout-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: #111827;
+        margin-bottom: 8px;
     }
 
-    [data-testid="stMetricLabel"] {
-        color: #4b5563 !important;
+    .workout-meta {
+        color: #4b5563;
+        font-size: 14px;
     }
 
-    [data-testid="stMetricValue"] {
-        color: #111827 !important;
+    .day-card {
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        padding: 15px;
+        min-height: 150px;
     }
 
-    [data-testid="stMetricDelta"] {
-        color: #4b5563 !important;
+    .day-title {
+        font-weight: 700;
+        font-size: 15px;
+        color: #111827;
+        margin-bottom: 10px;
     }
 
-    .footer {
-        color: #9ca3af !important;
-        font-size: 12px;
+    .rest-day {
+        color: #9ca3af;
+        font-size: 14px;
+    }
+
+    .metric-card {
+        background: white;
+        padding: 18px;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
         text-align: center;
-        margin-top: 40px;
-        padding-bottom: 20px;
+    }
+
+    .small-label {
+        font-size: 13px;
+        color: #6b7280;
+    }
+
+    .big-number {
+        font-size: 28px;
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .sync-box {
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        border-radius: 10px;
+        padding: 12px 15px;
+        color: #065f46;
+        margin-bottom: 20px;
+    }
+
+    .warning-box {
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        border-radius: 10px;
+        padding: 15px;
+        color: #9a3412;
+        margin-bottom: 20px;
+    }
+
+    .detail-box {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 22px;
+        margin-top: 20px;
     }
 
 </style>
 """, unsafe_allow_html=True)
 
-# =========================================================
+# ============================================================
 # SESSION STATE
-# =========================================================
+# ============================================================
 
-if "selected_workout" not in st.session_state:
-    st.session_state["selected_workout"] = None
-
-if "completed_workouts" not in st.session_state:
-    st.session_state["completed_workouts"] = set()
+if "selected_event" not in st.session_state:
+    st.session_state.selected_event = None
 
 if "calendar_week" not in st.session_state:
-    st.session_state["calendar_week"] = date.today()
+    st.session_state.calendar_week = date.today()
 
-# =========================================================
+if "events_cache" not in st.session_state:
+    st.session_state.events_cache = {}
+
+# ============================================================
 # SIDEBAR
-# =========================================================
+# ============================================================
 
 with st.sidebar:
 
     st.markdown("## 🚴 Luca Cycling Coach")
-    st.caption("Personal Cycling Coach")
+    st.caption("Il tuo allenatore ciclistico")
 
     st.divider()
 
-    st.markdown("**MENU**")
-
     pagina = st.radio(
-        "Navigazione",
+        "Menu",
         [
             "🏠 Dashboard",
             "📅 Calendario",
             "🚴 Allenamenti",
             "📊 Analisi",
-            "🧠 AI Coach",
-            "👤 Profilo",
+            "🤖 AI Coach",
+            "👤 Profilo"
         ],
-        index=0,
-        label_visibility="collapsed",
-        key="main_navigation",
+        key="main_navigation"
     )
 
     st.divider()
 
-    st.markdown("**PROFILO**")
+    st.markdown("### Profilo atleta")
 
     weight = st.number_input(
         "Peso (kg)",
         min_value=30.0,
         max_value=150.0,
         value=50.0,
-        step=0.5,
-        key="profile_weight",
+        step=0.5
     )
 
     ftp = st.number_input(
@@ -193,186 +215,135 @@ with st.sidebar:
         min_value=50,
         max_value=500,
         value=160,
-        step=1,
-        key="profile_ftp",
+        step=1
     )
 
     fc_max = st.number_input(
-        "FC max (bpm)",
+        "FC max",
         min_value=100,
         max_value=230,
         value=190,
-        step=1,
-        key="profile_hrmax",
+        step=1
     )
 
     obiettivo = st.selectbox(
         "Obiettivo",
         [
-            "Migliorare la forma generale",
+            "Migliorare forma generale",
             "Migliorare in salita",
             "Aumentare FTP",
             "Preparare una gara",
-        ],
-        key="profile_goal",
+            "Aumentare resistenza"
+        ]
     )
 
     giorni = st.multiselect(
         "Giorni disponibili",
-        [
-            "Lunedì",
-            "Martedì",
-            "Mercoledì",
-            "Giovedì",
-            "Venerdì",
-            "Sabato",
-            "Domenica",
-        ],
-        default=[
-            "Lunedì",
-            "Martedì",
-            "Giovedì",
-            "Venerdì",
-            "Sabato",
-        ],
-        key="profile_days",
+        ["Lunedì", "Martedì", "Giovedì", "Venerdì", "Sabato"],
+        default=["Lunedì", "Martedì", "Giovedì", "Venerdì", "Sabato"]
     )
 
-    st.divider()
+# ============================================================
+# FUNZIONI INTERVALS.ICU
+# ============================================================
 
-    st.caption("Luca Cycling Coach · Versione 0.3")
+def get_intervals_credentials():
 
-# =========================================================
-# DATI PROFILO
-# =========================================================
+    try:
+        athlete_id = st.secrets["INTERVALS_ATHLETE_ID"]
+        api_key = st.secrets["INTERVALS_API_KEY"]
 
-watts_per_kg = ftp / weight
+        return athlete_id, api_key
 
-# =========================================================
-# ALLENAMENTI
-# =========================================================
+    except Exception:
+        return None, None
 
-WORKOUTS = {
 
-    "Z2 Endurance": {
-        "icon": "🟢",
-        "category": "Endurance",
-        "duration": "1h 30m",
-        "intensity": "Bassa",
-        "goal": "Costruzione della base aerobica",
-        "description": (
-            "Allenamento continuo a intensità aerobica controllata. "
-            "Deve essere sostenibile e permettere di pedalare "
-            "senza accumulare eccessiva fatica."
-        ),
-        "steps": [
-            ("Riscaldamento", "10 min", "Z2"),
-            ("Endurance", "70 min", "Z2"),
-            ("Defaticamento", "10 min", "Z2"),
-        ],
-    },
+@st.cache_data(ttl=60)
+def fetch_intervals_events(
+    athlete_id,
+    api_key,
+    oldest,
+    newest
+):
 
-    "Sweet Spot": {
-        "icon": "🟠",
-        "category": "FTP",
-        "duration": "1h 30m",
-        "intensity": "Media/Alta",
-        "goal": "Sviluppare la FTP",
-        "description": (
-            "Allenamento orientato allo sviluppo della potenza "
-            "sostenibile. Gli intervalli sono impegnativi ma "
-            "devono rimanere controllati."
-        ),
-        "steps": [
-            ("Riscaldamento", "15 min", "Z2"),
-            ("Sweet Spot", "12 min", "88-94% FTP"),
-            ("Recupero", "5 min", "Recupero"),
-            ("Sweet Spot", "12 min", "88-94% FTP"),
-            ("Recupero", "5 min", "Recupero"),
-            ("Sweet Spot", "12 min", "88-94% FTP"),
-            ("Defaticamento", "29 min", "Z2"),
-        ],
-    },
+    url = (
+        f"https://intervals.icu/api/v1/athlete/"
+        f"{athlete_id}/events"
+    )
 
-    "Intervalli": {
-        "icon": "🔴",
-        "category": "VO2max",
-        "duration": "1h",
-        "intensity": "Alta",
-        "goal": "Aumentare la capacità VO2max",
-        "description": (
-            "Sessione ad alta intensità con intervalli brevi. "
-            "L'obiettivo è lavorare vicino alla massima capacità "
-            "aerobica mantenendo una buona qualità di esecuzione."
-        ),
-        "steps": [
-            ("Riscaldamento", "15 min", "Z2"),
-            ("Intervallo 1", "4 min", "VO2max"),
-            ("Recupero", "4 min", "Recupero"),
-            ("Intervallo 2", "4 min", "VO2max"),
-            ("Recupero", "4 min", "Recupero"),
-            ("Intervallo 3", "4 min", "VO2max"),
-            ("Recupero", "4 min", "Recupero"),
-            ("Intervallo 4", "4 min", "VO2max"),
-            ("Defaticamento", "13 min", "Z2"),
-        ],
-    },
+    params = {
+        "oldest": oldest,
+        "newest": newest
+    }
 
-    "Recupero": {
-        "icon": "🔵",
-        "category": "Recovery",
-        "duration": "1h",
-        "intensity": "Molto bassa",
-        "goal": "Favorire il recupero",
-        "description": (
-            "Pedalata molto facile. L'obiettivo è muovere le gambe "
-            "senza aggiungere un carico significativo."
-        ),
-        "steps": [
-            ("Riscaldamento", "10 min", "Z2"),
-            ("Recupero", "40 min", "Recupero"),
-            ("Defaticamento", "10 min", "Z2"),
-        ],
-    },
+    try:
 
-    "Endurance + salita": {
-        "icon": "🟠",
-        "category": "Endurance / Climbing",
-        "duration": "3h",
-        "intensity": "Media",
-        "goal": "Resistenza e capacità in salita",
-        "description": (
-            "Uscita lunga con prevalenza di lavoro aerobico e "
-            "alcuni tratti in salita. La maggior parte del tempo "
-            "deve rimanere controllata."
-        ),
-        "steps": [
-            ("Riscaldamento", "20 min", "Z2"),
-            ("Endurance", "60 min", "Z2"),
-            ("Salita 1", "10 min", "Z3"),
-            ("Recupero", "10 min", "Recupero"),
-            ("Endurance", "30 min", "Z2"),
-            ("Salita 2", "10 min", "Z3"),
-            ("Recupero", "10 min", "Recupero"),
-            ("Endurance", "20 min", "Z2"),
-            ("Defaticamento", "10 min", "Z2"),
-        ],
-    },
-}
+        response = requests.get(
+            url,
+            params=params,
+            auth=("API_KEY", api_key),
+            timeout=15
+        )
 
-# =========================================================
-# PIANO SETTIMANALE
-# =========================================================
+        if response.status_code == 200:
+            return response.json(), None
 
-WEEK_PLAN = {
-    0: "Z2 Endurance",
-    1: "Sweet Spot",
-    2: "Riposo",
-    3: "Intervalli",
-    4: "Recupero",
-    5: "Endurance + salita",
-    6: "Riposo",
-}
+        return [], (
+            f"Errore Intervals.icu "
+            f"({response.status_code}): "
+            f"{response.text[:300]}"
+        )
+
+    except requests.exceptions.RequestException as e:
+
+        return [], f"Errore di connessione: {e}"
+
+
+def get_events_for_range(oldest, newest):
+
+    athlete_id, api_key = get_intervals_credentials()
+
+    if not athlete_id or not api_key:
+        return [], False, (
+            "Credenziali Intervals.icu non configurate."
+        )
+
+    events, error = fetch_intervals_events(
+        athlete_id,
+        api_key,
+        oldest.isoformat(),
+        newest.isoformat()
+    )
+
+    if error:
+        return [], False, error
+
+    return events, True, None
+
+
+def get_week_events(monday):
+
+    sunday = monday + timedelta(days=6)
+
+    return get_events_for_range(
+        monday,
+        sunday
+    )
+
+
+def get_workout_events(events):
+
+    return [
+        event
+        for event in events
+        if event.get("category") == "WORKOUT"
+    ]
+
+
+# ============================================================
+# FUNZIONI UTILITY
+# ============================================================
 
 DAY_NAMES = [
     "Lunedì",
@@ -381,445 +352,544 @@ DAY_NAMES = [
     "Giovedì",
     "Venerdì",
     "Sabato",
-    "Domenica",
+    "Domenica"
 ]
 
-# =========================================================
-# FUNZIONI
-# =========================================================
 
-def get_monday(reference_date):
-    return reference_date - timedelta(
-        days=reference_date.weekday()
+def get_monday(day):
+
+    return day - timedelta(days=day.weekday())
+
+
+def format_date(date_string):
+
+    if not date_string:
+        return ""
+
+    try:
+        dt = datetime.fromisoformat(
+            date_string.replace("Z", "")
+        )
+
+        return dt.strftime("%d/%m/%Y")
+
+    except Exception:
+        return date_string[:10]
+
+
+def format_time(date_string):
+
+    if not date_string:
+        return ""
+
+    try:
+        dt = datetime.fromisoformat(
+            date_string.replace("Z", "")
+        )
+
+        return dt.strftime("%H:%M")
+
+    except Exception:
+        return ""
+
+
+def format_duration(seconds):
+
+    if not seconds:
+        return "—"
+
+    minutes = round(seconds / 60)
+
+    if minutes < 60:
+        return f"{minutes} min"
+
+    hours = minutes // 60
+    mins = minutes % 60
+
+    if mins == 0:
+        return f"{hours}h"
+
+    return f"{hours}h {mins}m"
+
+
+def format_load(event):
+
+    load = event.get("icu_training_load")
+
+    if load is None:
+        load = event.get("load_target")
+
+    if load is None:
+        return "—"
+
+    try:
+        return str(round(float(load)))
+
+    except Exception:
+        return str(load)
+
+
+def get_event_date(event):
+
+    value = event.get("start_date_local")
+
+    if not value:
+        return None
+
+    try:
+        return datetime.fromisoformat(
+            value.replace("Z", "")
+        ).date()
+
+    except Exception:
+        return None
+
+
+def get_event_steps(event):
+
+    workout_doc = event.get("workout_doc")
+
+    if not workout_doc:
+        return []
+
+    steps = workout_doc.get("steps", [])
+
+    return steps
+
+
+def describe_step(step, level=0):
+
+    lines = []
+
+    prefix = "  " * level
+
+    if "text" in step:
+        lines.append(
+            f"{prefix}{step['text']}"
+        )
+
+    duration = step.get("duration")
+
+    if duration:
+
+        minutes = round(duration / 60)
+
+        lines.append(
+            f"{prefix}• {minutes} min"
+        )
+
+    if "reps" in step:
+
+        lines.append(
+            f"{prefix}• Ripetizioni: {step['reps']}"
+        )
+
+    if "power" in step:
+
+        power = step["power"]
+
+        if isinstance(power, dict):
+
+            value = power.get("value")
+            units = power.get("units", "")
+
+            if value is not None:
+                lines.append(
+                    f"{prefix}• Potenza: {value} {units}"
+                )
+
+    if "hr" in step:
+
+        hr = step["hr"]
+
+        if isinstance(hr, dict):
+
+            value = hr.get("value")
+            units = hr.get("units", "")
+
+            if value is not None:
+                lines.append(
+                    f"{prefix}• FC: {value} {units}"
+                )
+
+    if "pace" in step:
+
+        pace = step["pace"]
+
+        if isinstance(pace, dict):
+
+            start = pace.get("start")
+            end = pace.get("end")
+
+            if start is not None:
+                lines.append(
+                    f"{prefix}• Ritmo: {start} → {end}"
+                )
+
+    if "steps" in step:
+
+        for substep in step["steps"]:
+
+            lines.extend(
+                describe_step(
+                    substep,
+                    level + 1
+                )
+            )
+
+    return lines
+
+
+def find_event_for_date(events, target_date):
+
+    matches = []
+
+    for event in get_workout_events(events):
+
+        event_date = get_event_date(event)
+
+        if event_date == target_date:
+            matches.append(event)
+
+    return matches
+
+
+# ============================================================
+# DETTAGLIO ALLENAMENTO
+# ============================================================
+
+def show_event_detail(event):
+
+    if not event:
+        return
+
+    st.markdown(
+        '<div class="detail-box">',
+        unsafe_allow_html=True
     )
 
+    name = event.get(
+        "name",
+        "Allenamento"
+    )
+
+    st.markdown(
+        f"## 🚴 {name}"
+    )
+
+    start = event.get("start_date_local")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric(
+            "Data",
+            format_date(start)
+        )
+
+    with col2:
+        st.metric(
+            "Ora",
+            format_time(start) or "—"
+        )
+
+    with col3:
+        st.metric(
+            "Durata",
+            format_duration(
+                event.get("moving_time")
+            )
+        )
+
+    with col4:
+        st.metric(
+            "Carico",
+            format_load(event)
+        )
+
+    st.divider()
+
+    description = event.get("description")
+
+    if description:
+
+        st.markdown("### Descrizione")
+
+        st.markdown(
+            description
+        )
+
+    steps = get_event_steps(event)
+
+    if steps:
+
+        st.markdown("### Struttura")
+
+        for step in steps:
+
+            lines = describe_step(step)
+
+            for line in lines:
+                st.markdown(line)
+
+    paired_activity = event.get(
+        "paired_activity_id"
+    )
+
+    if paired_activity:
+
+        st.success(
+            "Questo allenamento risulta collegato "
+            "a un'attività completata su Intervals.icu."
+        )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ============================================================
+# FOOTER
+# ============================================================
 
 def show_footer():
 
-    st.markdown(
-        """
-        <div class="footer">
-            Luca Cycling Coach · Versione 0.3 ·
-            Costruiamo il tuo coach personale 🚴
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def select_workout(workout_name):
-
-    st.session_state["selected_workout"] = workout_name
-
-    # Salviamo anche un indicatore per lo scroll
-    st.session_state["scroll_to_workout"] = True
-
-    st.rerun()
-
-
-def show_workout_detail(workout_name):
-
-    if workout_name not in WORKOUTS:
-        return
-
-    workout = WORKOUTS[workout_name]
-
-    # =====================================================
-    # TITOLO / ANCHOR
-    # =====================================================
-
-    st.markdown(
-        """
-        <div id="workout-details"
-             style="height:1px;"></div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     st.divider()
 
-    st.markdown(
-        f"## {workout['icon']} {workout_name}"
+    st.caption(
+        "Luca Cycling Coach • "
+        "Calendario sincronizzato con Intervals.icu"
     )
 
-    col1, col2, col3, col4 = st.columns(4)
 
-    with col1:
-        st.metric(
-            "Durata",
-            workout["duration"],
-        )
-
-    with col2:
-        st.metric(
-            "Intensità",
-            workout["intensity"],
-        )
-
-    with col3:
-        st.metric(
-            "Categoria",
-            workout["category"],
-        )
-
-    with col4:
-        st.metric(
-            "FTP",
-            f"{ftp} W",
-        )
-
-    st.markdown("### 🎯 Obiettivo")
-
-    st.write(
-        workout["goal"]
-    )
-
-    st.markdown("### 📋 Descrizione")
-
-    st.write(
-        workout["description"]
-    )
-
-    st.markdown("### 🧱 Struttura")
-
-    for index, (
-        step_name,
-        duration,
-        zone,
-    ) in enumerate(workout["steps"]):
-
-        col1, col2, col3 = st.columns(
-            [3, 1, 2]
-        )
-
-        with col1:
-
-            st.write(
-                f"**{index + 1}. {step_name}**"
-            )
-
-        with col2:
-
-            st.write(
-                duration
-            )
-
-        with col3:
-
-            st.write(
-                zone
-            )
-
-        st.divider()
-
-    if workout_name in st.session_state[
-        "completed_workouts"
-    ]:
-
-        st.success(
-            "✅ Allenamento completato"
-        )
-
-        if st.button(
-            "↩️ Annulla completamento",
-            key=f"undo_{workout_name}",
-        ):
-
-            st.session_state[
-                "completed_workouts"
-            ].remove(workout_name)
-
-            st.rerun()
-
-    else:
-
-        if st.button(
-            "✅ Segna come completato",
-            type="primary",
-            key=f"complete_{workout_name}",
-        ):
-
-            st.session_state[
-                "completed_workouts"
-            ].add(workout_name)
-
-            st.rerun()
-
-
-# =========================================================
+# ============================================================
 # DASHBOARD
-# =========================================================
+# ============================================================
 
 def show_dashboard():
 
-    st.markdown(
-        '<div class="main-title">'
-        'Buongiorno, Luca 👋'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    st.title("🏠 Dashboard")
 
     st.markdown(
-        '<div class="main-subtitle">'
-        'Ecco il tuo stato di allenamento.'
-        '</div>',
-        unsafe_allow_html=True,
+        "Il tuo centro di controllo per il ciclismo."
     )
 
-    # =====================================================
+    athlete_id, api_key = get_intervals_credentials()
+
+    if not athlete_id or not api_key:
+
+        st.warning(
+            "⚠️ Intervals.icu non è ancora collegato. "
+            "Configura le API key nei Secrets di Streamlit."
+        )
+
+    else:
+
+        st.markdown(
+            '<div class="sync-box">'
+            '🟢 <strong>Intervals.icu collegato</strong> — '
+            'il calendario viene letto direttamente dal tuo account.'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+    # --------------------------------------------------------
     # METRICHE
-    # =====================================================
+    # --------------------------------------------------------
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
 
-        st.metric(
-            "⚡ FTP",
-            f"{ftp} W",
-            f"{watts_per_kg:.2f} W/kg",
+        st.markdown(
+            '<div class="metric-card">'
+            '<div class="small-label">FTP</div>'
+            f'<div class="big-number">{ftp} W</div>'
+            '</div>',
+            unsafe_allow_html=True
         )
 
     with col2:
 
-        st.metric(
-            "💪 Fitness",
-            "—",
+        st.markdown(
+            '<div class="metric-card">'
+            '<div class="small-label">Peso</div>'
+            f'<div class="big-number">{weight:.1f} kg</div>'
+            '</div>',
+            unsafe_allow_html=True
         )
 
     with col3:
 
-        st.metric(
-            "😴 Fatigue",
-            "—",
+        st.markdown(
+            '<div class="metric-card">'
+            '<div class="small-label">Obiettivo</div>'
+            f'<div class="big-number">🚴</div>'
+            '</div>',
+            unsafe_allow_html=True
         )
 
     with col4:
 
-        st.metric(
-            "📈 Form",
-            "—",
+        st.markdown(
+            '<div class="metric-card">'
+            '<div class="small-label">Giorni allenamento</div>'
+            f'<div class="big-number">{len(giorni)}</div>'
+            '</div>',
+            unsafe_allow_html=True
         )
 
-    st.divider()
-
-    # =====================================================
-    # ALLENAMENTO DI OGGI
-    # =====================================================
-
-    st.markdown(
-        "## 🏋️ Allenamento di oggi"
-    )
+    st.markdown("## 📅 Allenamento di oggi")
 
     today = date.today()
 
-    today_workout_name = WEEK_PLAN[
-        today.weekday()
-    ]
-
-    if today_workout_name == "Riposo":
-
-        st.success(
-            "😴 **Oggi è un giorno di riposo.**\n\n"
-            "Recupera bene per affrontare i prossimi allenamenti."
-        )
-
-    else:
-
-        workout = WORKOUTS[
-            today_workout_name
-        ]
-
-        col1, col2 = st.columns(
-            [2, 1]
-        )
-
-        with col1:
-
-            st.subheader(
-                f"{workout['icon']} "
-                f"{today_workout_name}"
-            )
-
-            st.write(
-                f"**{workout['goal']} — "
-                f"{workout['duration']}**"
-            )
-
-            st.write(
-                workout["description"]
-            )
-
-        with col2:
-
-            st.info(
-                f"**{workout['duration']}**\n\n"
-                f"Intensità: "
-                f"**{workout['intensity']}**"
-            )
-
-            if st.button(
-                "▶️ Apri allenamento",
-                use_container_width=True,
-                key="dashboard_open_today",
-            ):
-
-                select_workout(
-                    today_workout_name
-                )
-
-    # =====================================================
-    # PIANO SETTIMANA
-    # =====================================================
-
-    st.divider()
-
-    st.markdown(
-        "## 📅 Piano della settimana"
+    events, success, error = get_events_for_range(
+        today,
+        today
     )
 
-    monday = get_monday(today)
+    if success:
 
-    week_columns = st.columns(7)
+        today_workouts = get_workout_events(events)
 
-    for index, column in enumerate(
-        week_columns
-    ):
+        if today_workouts:
 
-        current_day = (
-            monday +
-            timedelta(days=index)
-        )
+            for event in today_workouts:
 
-        workout_name = WEEK_PLAN[index]
-
-        with column:
-
-            st.markdown(
-                f"**{DAY_NAMES[index]}**"
-            )
-
-            if current_day == today:
-
-                st.caption(
-                    "📍 OGGI"
+                st.markdown(
+                    '<div class="workout-card">',
+                    unsafe_allow_html=True
                 )
 
-            if workout_name == "Riposo":
-
-                st.info(
-                    "😴\n\nRiposo"
+                st.markdown(
+                    f'<div class="workout-title">'
+                    f'🚴 {event.get("name", "Allenamento")}'
+                    f'</div>',
+                    unsafe_allow_html=True
                 )
 
-            else:
-
-                workout = WORKOUTS[
-                    workout_name
-                ]
-
-                st.write(
-                    f"{workout['icon']} "
-                    f"**{workout_name}**"
-                )
-
-                st.caption(
-                    workout["duration"]
+                st.markdown(
+                    f'<div class="workout-meta">'
+                    f'{format_duration(event.get("moving_time"))}'
+                    f' &nbsp; • &nbsp; '
+                    f'Carico: {format_load(event)}'
+                    f'</div>',
+                    unsafe_allow_html=True
                 )
 
                 if st.button(
                     "Dettagli",
-                    key=f"dashboard_details_{index}",
-                    use_container_width=True,
+                    key=f"dashboard_{event.get('id')}"
                 ):
 
-                    select_workout(
-                        workout_name
-                    )
+                    st.session_state.selected_event = event
+                    st.rerun()
 
-    # =====================================================
+                st.markdown(
+                    "</div>",
+                    unsafe_allow_html=True
+                )
+
+        else:
+
+            st.info(
+                "Nessun allenamento pianificato per oggi."
+            )
+
+    else:
+
+        if error:
+            st.warning(error)
+
+    # --------------------------------------------------------
     # DETTAGLIO SELEZIONATO
-    # =====================================================
+    # --------------------------------------------------------
 
-    if st.session_state[
-        "selected_workout"
-    ]:
+    if st.session_state.selected_event:
 
-        show_workout_detail(
-            st.session_state[
-                "selected_workout"
-            ]
+        show_event_detail(
+            st.session_state.selected_event
         )
 
-    # =====================================================
-    # AI COACH
-    # =====================================================
+    # --------------------------------------------------------
+    # PROSSIMI ALLENAMENTI
+    # --------------------------------------------------------
 
-    st.divider()
+    st.markdown("## 🔜 Prossimi allenamenti")
 
-    st.markdown(
-        "## 🧠 Luca Cycling Coach"
+    monday = get_monday(today)
+    sunday = monday + timedelta(days=13)
+
+    events, success, error = get_events_for_range(
+        monday,
+        sunday
     )
 
-    coach_col1, coach_col2 = st.columns(
-        [2, 1]
-    )
+    if success:
 
-    with coach_col1:
+        future = []
 
-        st.write(
-            "Il coach analizzerà progressivamente "
-            "i tuoi allenamenti e costruirà il piano "
-            "in base alla tua risposta al carico."
+        for event in get_workout_events(events):
+
+            event_date = get_event_date(event)
+
+            if event_date and event_date >= today:
+                future.append(event)
+
+        future.sort(
+            key=lambda x: x.get(
+                "start_date_local",
+                ""
+            )
         )
 
-        st.write(
-            "Quando avremo i dati reali potremo analizzare:"
-        )
+        for event in future[:5]:
 
-        st.write("• carico di allenamento")
-        st.write("• recupero")
-        st.write("• Fitness")
-        st.write("• Fatigue")
-        st.write("• Form")
-        st.write("• progressione")
+            col1, col2, col3 = st.columns(
+                [1.5, 4, 1]
+            )
 
-    with coach_col2:
+            with col1:
 
-        st.info(
-            "**Prossimamente**\n\n"
-            "🤖 Analisi AI\n\n"
-            "📊 Dati reali\n\n"
-            "🔄 Ripianificazione automatica"
-        )
+                st.write(
+                    format_date(
+                        event.get("start_date_local")
+                    )
+                )
+
+            with col2:
+
+                st.write(
+                    f"**{event.get('name', 'Allenamento')}**"
+                )
+
+            with col3:
+
+                if st.button(
+                    "Apri",
+                    key=f"dashboard_future_{event.get('id')}"
+                ):
+
+                    st.session_state.selected_event = event
+                    st.rerun()
+
+    show_footer()
 
 
-# =========================================================
+# ============================================================
 # CALENDARIO
-# =========================================================
+# ============================================================
 
 def show_calendar():
 
     st.title("📅 Calendario")
 
-    st.write(
-        "Il tuo piano di allenamento settimanale."
+    st.markdown(
+        "Qui vengono mostrati gli allenamenti reali "
+        "presenti su **Intervals.icu**."
     )
 
-    st.divider()
-
-    # =====================================================
+    # --------------------------------------------------------
     # NAVIGAZIONE SETTIMANA
-    # =====================================================
-
-    current_reference = (
-        st.session_state[
-            "calendar_week"
-        ]
-    )
-
-    current_monday = get_monday(
-        current_reference
-    )
+    # --------------------------------------------------------
 
     col1, col2, col3 = st.columns(
         [1, 2, 1]
@@ -828,21 +898,12 @@ def show_calendar():
     with col1:
 
         if st.button(
-            "⬅️ Settimana precedente",
-            use_container_width=True,
-            key="calendar_previous",
+            "⬅️ Settimana precedente"
         ):
 
-            st.session_state[
-                "calendar_week"
-            ] = (
-                current_monday -
-                timedelta(days=7)
+            st.session_state.calendar_week -= timedelta(
+                days=7
             )
-
-            st.session_state[
-                "selected_workout"
-            ] = None
 
             st.rerun()
 
@@ -850,449 +911,437 @@ def show_calendar():
 
         st.markdown(
             f"<h3 style='text-align:center;'>"
-            f"{current_monday.strftime('%d/%m/%Y')}"
+            f"{st.session_state.calendar_week.strftime('%d/%m/%Y')}"
             f" → "
-            f"{(current_monday + timedelta(days=6)).strftime('%d/%m/%Y')}"
+            f"{(st.session_state.calendar_week + timedelta(days=6)).strftime('%d/%m/%Y')}"
             f"</h3>",
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
 
     with col3:
 
         if st.button(
-            "Settimana successiva ➡️",
-            use_container_width=True,
-            key="calendar_next",
+            "Settimana successiva ➡️"
         ):
 
-            st.session_state[
-                "calendar_week"
-            ] = (
-                current_monday +
-                timedelta(days=7)
+            st.session_state.calendar_week += timedelta(
+                days=7
             )
-
-            st.session_state[
-                "selected_workout"
-            ] = None
 
             st.rerun()
 
-    if st.button(
-        "📍 Torna a questa settimana",
-        use_container_width=True,
-        key="calendar_today",
-    ):
+    if st.button("📍 Torna a questa settimana"):
 
-        st.session_state[
-            "calendar_week"
-        ] = date.today()
-
-        st.session_state[
-            "selected_workout"
-        ] = None
+        st.session_state.calendar_week = get_monday(
+            date.today()
+        )
 
         st.rerun()
 
     st.divider()
 
-    # =====================================================
-    # GIORNI
-    # =====================================================
+    # --------------------------------------------------------
+    # AGGIORNAMENTO
+    # --------------------------------------------------------
 
-    for index in range(7):
+    if st.button("🔄 Aggiorna da Intervals.icu"):
 
-        current_day = (
-            current_monday +
-            timedelta(days=index)
+        fetch_intervals_events.clear()
+
+        st.rerun()
+
+    monday = st.session_state.calendar_week
+    sunday = monday + timedelta(days=6)
+
+    events, success, error = get_events_for_range(
+        monday,
+        sunday
+    )
+
+    if not success:
+
+        st.markdown(
+            '<div class="warning-box">'
+            '⚠️ Impossibile leggere il calendario di Intervals.icu.'
+            '</div>',
+            unsafe_allow_html=True
         )
 
-        workout_name = WEEK_PLAN[index]
+        if error:
+            st.code(error)
 
-        col1, col2, col3, col4 = st.columns(
-            [1.2, 3, 1.5, 1.5]
+        show_footer()
+        return
+
+    workouts = get_workout_events(events)
+
+    # --------------------------------------------------------
+    # CALENDARIO 7 GIORNI
+    # --------------------------------------------------------
+
+    columns = st.columns(7)
+
+    for i in range(7):
+
+        current_day = monday + timedelta(days=i)
+
+        day_events = find_event_for_date(
+            workouts,
+            current_day
         )
 
-        with col1:
+        with columns[i]:
 
-            st.write(
-                f"**{DAY_NAMES[index]}**"
+            st.markdown(
+                '<div class="day-card">',
+                unsafe_allow_html=True
             )
 
-            st.caption(
-                current_day.strftime("%d/%m")
+            st.markdown(
+                f'<div class="day-title">'
+                f'{DAY_NAMES[i]}<br>'
+                f'{current_day.strftime("%d/%m")}'
+                f'</div>',
+                unsafe_allow_html=True
             )
 
-            if current_day == date.today():
+            if not day_events:
 
-                st.caption(
-                    "📍 Oggi"
+                st.markdown(
+                    '<div class="rest-day">'
+                    '😴 Riposo'
+                    '</div>',
+                    unsafe_allow_html=True
                 )
 
-        if workout_name == "Riposo":
+            else:
 
-            with col2:
+                for event in day_events:
 
-                st.write(
-                    "😴 **Riposo**"
-                )
-
-            with col3:
-
-                st.write("—")
-
-            with col4:
-
-                st.write("Recupero")
-
-        else:
-
-            workout = WORKOUTS[
-                workout_name
-            ]
-
-            with col2:
-
-                st.write(
-                    f"{workout['icon']} "
-                    f"**{workout_name}**"
-                )
-
-                st.caption(
-                    workout["goal"]
-                )
-
-            with col3:
-
-                st.write(
-                    workout["duration"]
-                )
-
-            with col4:
-
-                if workout_name in st.session_state[
-                    "completed_workouts"
-                ]:
-
-                    st.success(
-                        "Completato"
+                    st.markdown(
+                        f"**🚴 {event.get('name', 'Allenamento')}**"
                     )
 
-                else:
+                    st.caption(
+                        f"⏱ {format_duration(event.get('moving_time'))}"
+                    )
+
+                    load = format_load(event)
+
+                    if load != "—":
+
+                        st.caption(
+                            f"📈 Carico: {load}"
+                        )
 
                     if st.button(
                         "Apri",
-                        key=f"calendar_open_{current_day}",
-                        use_container_width=True,
+                        key=f"calendar_{event.get('id')}"
                     ):
 
-                        select_workout(
-                            workout_name
-                        )
-
-        st.divider()
-
-    # =====================================================
-    # DETTAGLIO
-    # =====================================================
-
-    if st.session_state[
-        "selected_workout"
-    ]:
-
-        show_workout_detail(
-            st.session_state[
-                "selected_workout"
-            ]
-        )
-
-
-# =========================================================
-# ALLENAMENTI
-# =========================================================
-
-def show_workouts():
-
-    st.title("🚴 Allenamenti")
-
-    st.write(
-        "Tutti gli allenamenti disponibili nel tuo piano."
-    )
-
-    st.divider()
-
-    for workout_name, workout in WORKOUTS.items():
-
-        col1, col2, col3, col4 = st.columns(
-            [1, 4, 2, 1.5]
-        )
-
-        with col1:
+                        st.session_state.selected_event = event
+                        st.rerun()
 
             st.markdown(
-                f"## {workout['icon']}"
+                "</div>",
+                unsafe_allow_html=True
             )
 
-        with col2:
+    # --------------------------------------------------------
+    # RIEPILOGO SETTIMANA
+    # --------------------------------------------------------
 
-            st.write(
-                f"**{workout_name}**"
-            )
+    st.markdown("## 📊 Riepilogo settimana")
 
-            st.caption(
-                workout["goal"]
-            )
+    total_minutes = 0
+    total_load = 0
+    workout_count = len(workouts)
 
-        with col3:
+    for event in workouts:
 
-            st.write(
-                workout["duration"]
-            )
+        moving_time = event.get("moving_time")
 
-        with col4:
+        if moving_time:
+            total_minutes += moving_time / 60
 
-            if st.button(
-                "Apri",
-                key=f"workout_open_{workout_name}",
-                use_container_width=True,
-            ):
+        load = event.get("icu_training_load")
 
-                select_workout(
-                    workout_name
-                )
-
-        st.divider()
-
-    if st.session_state[
-        "selected_workout"
-    ]:
-
-        show_workout_detail(
-            st.session_state[
-                "selected_workout"
-            ]
-        )
-
-
-# =========================================================
-# ANALISI
-# =========================================================
-
-def show_analysis():
-
-    st.title("📊 Analisi")
-
-    st.write(
-        "Qui analizzeremo le tue prestazioni."
-    )
-
-    st.divider()
+        if load:
+            try:
+                total_load += float(load)
+            except Exception:
+                pass
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
 
         st.metric(
-            "FTP",
-            f"{ftp} W",
+            "Allenamenti",
+            workout_count
         )
 
     with col2:
 
         st.metric(
-            "FTP relativo",
-            f"{watts_per_kg:.2f} W/kg",
+            "Tempo totale",
+            format_duration(
+                total_minutes * 60
+            )
         )
 
     with col3:
 
         st.metric(
-            "FC max",
-            f"{fc_max} bpm",
+            "Carico totale",
+            round(total_load)
         )
 
-    st.divider()
+    # --------------------------------------------------------
+    # DETTAGLIO
+    # --------------------------------------------------------
 
-    st.subheader(
-        "📈 Progressione"
+    if st.session_state.selected_event:
+
+        show_event_detail(
+            st.session_state.selected_event
+        )
+
+    show_footer()
+
+
+# ============================================================
+# ALLENAMENTI
+# ============================================================
+
+def show_workouts():
+
+    st.title("🚴 Allenamenti")
+
+    st.markdown(
+        "Gli allenamenti vengono presi direttamente "
+        "dal calendario Intervals.icu."
     )
+
+    today = date.today()
+
+    start = today - timedelta(days=30)
+    end = today + timedelta(days=30)
+
+    events, success, error = get_events_for_range(
+        start,
+        end
+    )
+
+    if not success:
+
+        st.warning(error)
+        show_footer()
+        return
+
+    workouts = get_workout_events(events)
+
+    workouts.sort(
+        key=lambda x: x.get(
+            "start_date_local",
+            ""
+        ),
+        reverse=True
+    )
+
+    if not workouts:
+
+        st.info(
+            "Nessun allenamento trovato."
+        )
+
+    for event in workouts:
+
+        st.markdown(
+            '<div class="workout-card">',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            f'<div class="workout-date">'
+            f'{format_date(event.get("start_date_local"))}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            f'<div class="workout-title">'
+            f'{event.get("name", "Allenamento")}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            f'<div class="workout-meta">'
+            f'⏱ {format_duration(event.get("moving_time"))}'
+            f' &nbsp; • &nbsp; '
+            f'📈 Carico {format_load(event)}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+        if st.button(
+            "Dettagli",
+            key=f"workouts_{event.get('id')}"
+        ):
+
+            st.session_state.selected_event = event
+            st.rerun()
+
+        st.markdown(
+            "</div>",
+            unsafe_allow_html=True
+        )
+
+    if st.session_state.selected_event:
+
+        show_event_detail(
+            st.session_state.selected_event
+        )
+
+    show_footer()
+
+
+# ============================================================
+# ANALISI
+# ============================================================
+
+def show_analysis():
+
+    st.title("📊 Analisi")
 
     st.info(
-        "🚧 Qui aggiungeremo i grafici reali di "
-        "FTP, carico, Fitness, Fatigue e Form."
+        "Questa sezione verrà collegata alle attività "
+        "reali di Intervals.icu nella prossima fase."
     )
 
-    st.divider()
+    st.markdown("""
+    ### Cosa analizzeremo
 
-    st.subheader(
-        "🏋️ Allenamenti completati"
-    )
+    - 🚴 Allenamenti completati
+    - ❤️ Frequenza cardiaca
+    - ⚡ Potenza
+    - 📈 Carico
+    - 🧠 Fatica
+    - 📊 Fitness
+    - 🔋 Form
+    - 🏔️ Prestazioni in salita
+    """)
 
-    completed = st.session_state[
-        "completed_workouts"
-    ]
-
-    if completed:
-
-        for workout in completed:
-
-            st.write(
-                f"✅ {workout}"
-            )
-
-    else:
-
-        st.write(
-            "Non hai ancora segnato allenamenti come completati."
-        )
+    show_footer()
 
 
-# =========================================================
+# ============================================================
 # AI COACH
-# =========================================================
+# ============================================================
 
 def show_ai_coach():
 
-    st.title("🧠 AI Coach")
+    st.title("🤖 AI Coach")
 
-    st.write(
-        "Il tuo coach personale."
+    st.markdown(
+        "Il coach analizzerà progressivamente "
+        "allenamenti, calendario e carico."
     )
-
-    st.divider()
 
     st.info(
-        "🤖 **Il coach sta preparando il tuo piano.**\n\n"
-        "Quando collegheremo i dati reali degli allenamenti, "
-        "potrà analizzare le tue sessioni, valutare il carico "
-        "e suggerire modifiche al piano."
+        "🚧 AI Coach completo in costruzione."
     )
 
-    st.subheader(
-        "🎯 Obiettivo attuale"
-    )
+    st.markdown("""
+    ### In futuro il coach potrà:
 
-    st.write(
-        obiettivo
-    )
+    **1. Analizzare**
+    - allenamenti completati
+    - carico
+    - fatica
+    - recupero
+    - andamento della forma
 
-    st.subheader(
-        "📋 Stato attuale"
-    )
+    **2. Valutare**
+    - se hai rispettato il piano
+    - se hai spinto troppo
+    - se sei affaticato
+    - se stai migliorando
 
-    st.write(
-        f"FTP: **{ftp} W**"
-    )
+    **3. Modificare**
+    - allenamento del giorno
+    - allenamenti successivi
+    - volume
+    - intensità
+    - recuperi
 
-    st.write(
-        f"Peso: **{weight:.1f} kg**"
-    )
+    **4. Scrivere nuovamente su Intervals.icu**
+    """)
 
-    st.write(
-        f"FTP relativo: **{watts_per_kg:.2f} W/kg**"
-    )
-
-    st.divider()
-
-    st.subheader(
-        "💬 Prossimamente"
-    )
-
-    st.write(
-        "• Analisi automatica degli allenamenti"
-    )
-
-    st.write(
-        "• Feedback dopo ogni sessione"
-    )
-
-    st.write(
-        "• Adattamento del carico"
-    )
-
-    st.write(
-        "• Ripianificazione automatica"
-    )
-
-    st.write(
-        "• Analisi della forma"
-    )
-
-    st.write(
-        "• Consigli personalizzati"
-    )
+    show_footer()
 
 
-# =========================================================
+# ============================================================
 # PROFILO
-# =========================================================
+# ============================================================
 
 def show_profile():
 
     st.title("👤 Profilo")
 
+    st.markdown("### Dati atleta")
+
     st.write(
-        "I tuoi dati ciclistici."
+        f"**Peso:** {weight:.1f} kg"
+    )
+
+    st.write(
+        f"**FTP:** {ftp} W"
+    )
+
+    st.write(
+        f"**FC max:** {fc_max} bpm"
+    )
+
+    st.write(
+        f"**Obiettivo:** {obiettivo}"
+    )
+
+    st.write(
+        f"**Giorni disponibili:** "
+        f"{', '.join(giorni) if giorni else 'Nessuno'}"
     )
 
     st.divider()
 
-    col1, col2 = st.columns(2)
+    st.markdown("### Intervals.icu")
 
-    with col1:
+    athlete_id, api_key = get_intervals_credentials()
 
-        st.metric(
-            "Peso",
-            f"{weight:.1f} kg",
+    if athlete_id and api_key:
+
+        st.success(
+            "🟢 Account Intervals.icu collegato"
         )
 
-        st.metric(
-            "FTP",
-            f"{ftp} W",
-        )
-
-    with col2:
-
-        st.metric(
-            "FTP relativo",
-            f"{watts_per_kg:.2f} W/kg",
-        )
-
-        st.metric(
-            "FC max",
-            f"{fc_max} bpm",
-        )
-
-    st.divider()
-
-    st.subheader(
-        "🎯 Obiettivo"
-    )
-
-    st.write(
-        obiettivo
-    )
-
-    st.subheader(
-        "📅 Giorni disponibili"
-    )
-
-    if giorni:
-
-        st.write(
-            ", ".join(giorni)
+        st.caption(
+            "La tua API key viene utilizzata "
+            "solo dal server Streamlit e non viene mostrata."
         )
 
     else:
 
         st.warning(
-            "Nessun giorno selezionato."
+            "🔴 Intervals.icu non collegato"
         )
 
+    show_footer()
 
-# =========================================================
-# NAVIGAZIONE
-# =========================================================
+
+# ============================================================
+# NAVIGAZIONE PRINCIPALE
+# ============================================================
 
 if pagina == "🏠 Dashboard":
 
@@ -1310,53 +1359,10 @@ elif pagina == "📊 Analisi":
 
     show_analysis()
 
-elif pagina == "🧠 AI Coach":
+elif pagina == "🤖 AI Coach":
 
     show_ai_coach()
 
 elif pagina == "👤 Profilo":
 
     show_profile()
-
-# =========================================================
-# SCROLL AUTOMATICO
-# =========================================================
-
-if st.session_state.get(
-    "scroll_to_workout",
-    False
-):
-
-    st.session_state[
-        "scroll_to_workout"
-    ] = False
-
-    st.markdown(
-        """
-        <script>
-        setTimeout(function() {
-
-            const element =
-                window.parent.document
-                .getElementById("workout-details");
-
-            if (element) {
-
-                element.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start"
-                });
-
-            }
-
-        }, 300);
-        </script>
-        """,
-        unsafe_allow_html=True,
-    )
-
-# =========================================================
-# FOOTER
-# =========================================================
-
-show_footer()
