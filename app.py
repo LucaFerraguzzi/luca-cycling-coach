@@ -33,6 +33,30 @@ if "calendar_week_offset" not in st.session_state:
 if "coach_message" not in st.session_state:
     st.session_state.coach_message = None
 
+if "coach_chat" not in st.session_state:
+    st.session_state.coach_chat = []
+
+if "coach_start_date" not in st.session_state:
+    st.session_state.coach_start_date = None
+
+if "coach_blackout_dates" not in st.session_state:
+    st.session_state.coach_blackout_dates = set()
+
+if "coach_outdoor_until" not in st.session_state:
+    st.session_state.coach_outdoor_until = None
+
+if "coach_mode_week" not in st.session_state:
+    st.session_state.coach_mode_week = {
+        0: "Indoor",
+        1: "Indoor",
+        3: "Indoor",
+        4: "Indoor",
+        5: "Outdoor"
+    }
+
+if "coach_plan_horizon" not in st.session_state:
+    st.session_state.coach_plan_horizon = 11
+
 # =========================
 # STYLE
 # =========================
@@ -335,7 +359,9 @@ def update_intervals_event(
     name,
     start_datetime,
     end_datetime,
-    description
+    description,
+    indoor=None,
+    target=None
 ):
     url = (
         f"{BASE_URL}/athlete/"
@@ -355,6 +381,11 @@ def update_intervals_event(
         "type": "Ride"
     }
 
+    if indoor is not None:
+        payload["indoor"] = bool(indoor)
+    if target is not None:
+        payload["target"] = target
+
     try:
         response = requests.put(
             url,
@@ -370,6 +401,25 @@ def update_intervals_event(
             "Errore durante il salvataggio "
             f"su Intervals.icu: {e}"
         )
+        return False
+
+
+# =========================
+# EVENT MANAGEMENT
+# =========================
+
+def delete_intervals_event(event_id):
+    url = f"{BASE_URL}/athlete/{INTERVALS_ATHLETE_ID}/events/{event_id}"
+    try:
+        response = requests.delete(
+            url,
+            auth=intervals_auth(),
+            timeout=20
+        )
+        response.raise_for_status()
+        return True
+    except requests.exceptions.RequestException as e:
+        st.error(f"Errore durante l'eliminazione su Intervals.icu: {e}")
         return False
 
 
@@ -439,7 +489,7 @@ def refresh_wellness():
 
 
 def refresh_activities():
-    st.session_state.activities_cache = get_intervals_activities(90)
+    st.session_state.activities_cache = get_intervals_activities(180)
 
 
 def get_monday(input_date):
@@ -755,10 +805,11 @@ def generate_outdoor_workout(workout_type, duration, hr_max):
 
 
 def choose_workout_type(day_index, state, goal):
-    # Progressione prudente: endurance -> qualità -> endurance.
-    # Se l'atleta è affaticato, niente VO2/threshold.
-    if state == "fatigued":
+    # Se il carico è alto, il Coach protegge il recupero.
+    if state in {"overreaching", "loaded"}:
         return "Recovery"
+    if state == "recovery" and day_index in {1, 3}:
+        return "Endurance"
 
     if day_index == 0:
         return "Endurance"
@@ -787,7 +838,8 @@ def build_week_plan(
     form,
     indoor_days,
     outdoor_days,
-    goal
+    goal,
+    fitness_trend=None
 ):
     state = coach_state(
         fitness,
@@ -948,6 +1000,332 @@ def create_coach_week(
 
 
 # =========================
+# CONVERSATIONAL COACH
+# =========================
+
+COACH_WEEKDAY_MAP = {
+    0: "Lunedì",
+    1: "Martedì",
+    2: "Mercoledì",
+    3: "Giovedì",
+    4: "Venerdì",
+    5: "Sabato",
+    6: "Domenica"
+}
+
+COACH_WORKOUT_TYPES = [
+    "Endurance", "Tempo", "Sweet Spot", "Threshold", "VO2max", "Recovery"
+]
+
+
+def parse_italian_date(day_text, month_text=None, year=None):
+    try:
+        day_num = int(day_text)
+        months = {
+            "gennaio": 1, "febbraio": 2, "marzo": 3, "aprile": 4,
+            "maggio": 5, "giugno": 6, "luglio": 7, "agosto": 8,
+            "settembre": 9, "ottobre": 10, "novembre": 11, "dicembre": 12
+        }
+        if month_text:
+            month_num = months.get(month_text.lower())
+        else:
+            month_num = date.today().month
+        if not month_num:
+            return None
+        return date(year or date.today().year, month_num, day_num)
+    except Exception:
+        return None
+
+
+def parse_coach_dates(text):
+    """Riconosce i principali modi naturali con cui Luca indica date."""
+    t = text.lower().replace("–", "-").replace("—", "-")
+    months = r"gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre"
+    dates = []
+
+    import re
+
+    # 9-10 settembre / 9 al 10 settembre
+    m = re.search(r"\b(\d{1,2})\s*(?:-|al|a)\s*(\d{1,2})\s+(" + months + r")\b", t)
+    if m:
+        d1 = parse_italian_date(m.group(1), m.group(3))
+        d2 = parse_italian_date(m.group(2), m.group(3))
+        if d1 and d2 and d2 >= d1:
+            return [d1 + timedelta(days=i) for i in range((d2 - d1).days + 1)]
+
+    # 9 e 10 settembre
+    m = re.search(r"\b(\d{1,2})\s*(?:e|,|/)\s*(\d{1,2})\s+(" + months + r")\b", t)
+    if m:
+        d1 = parse_italian_date(m.group(1), m.group(3))
+        d2 = parse_italian_date(m.group(2), m.group(3))
+        if d1 and d2:
+            return [d1, d2]
+
+    # Singola data con mese
+    for m in re.finditer(r"\b(\d{1,2})\s+(" + months + r")\b", t):
+        d = parse_italian_date(m.group(1), m.group(2))
+        if d:
+            dates.append(d)
+
+    # Solo giorno numerico, utile quando il mese è già evidente dal contesto
+    if not dates:
+        for m in re.finditer(r"\b(\d{1,2})[/-](\d{1,2})\b", t):
+            try:
+                dates.append(date(date.today().year, int(m.group(2)), int(m.group(1))))
+            except Exception:
+                pass
+
+    # deduplica mantenendo l'ordine
+    result = []
+    for d in dates:
+        if d not in result:
+            result.append(d)
+    return result
+
+
+def workout_type_from_event(event):
+    name = str(event.get("name", ""))
+    for workout_type in COACH_WORKOUT_TYPES:
+        if workout_type.lower() in name.lower():
+            return workout_type
+    return "Endurance"
+
+
+def mode_for_date(target_date):
+    outdoor_until = st.session_state.get("coach_outdoor_until")
+    if outdoor_until and target_date <= outdoor_until:
+        return "Outdoor"
+    return st.session_state.coach_mode_week.get(target_date.weekday(), "Indoor")
+
+
+def rolling_plan(start_date, horizon_days=11):
+    """Genera almeno una settimana, preferibilmente 1.5 settimane."""
+    state = coach_state(fitness, fatigue, form, fitness_trend)
+    plan = []
+    available_weekdays = {0, 1, 3, 4, 5}
+
+    for offset in range(horizon_days):
+        current_date = start_date + timedelta(days=offset)
+        if current_date.weekday() not in available_weekdays:
+            continue
+        if current_date in st.session_state.coach_blackout_dates:
+            continue
+
+        # Il giorno della settimana determina la funzione fisiologica.
+        day_index = current_date.weekday()
+        workout_type = choose_workout_type(day_index, state, goal)
+        if day_index == 5:
+            workout_type = "Endurance"
+
+        duration = {0: 90, 1: 90, 3: 60, 4: 60, 5: 180}[day_index]
+        mode = mode_for_date(current_date)
+
+        if mode == "Indoor":
+            description = generate_indoor_workout(workout_type, duration, ftp)
+            target = "POWER"
+            indoor = True
+        else:
+            description = generate_outdoor_workout(workout_type, duration, hr_max)
+            target = "HR"
+            indoor = False
+
+        plan.append({
+            "date": current_date,
+            "duration": duration,
+            "name": f"{mode} • {workout_type}",
+            "type": workout_type,
+            "mode": mode,
+            "description": description,
+            "target": target,
+            "indoor": indoor
+        })
+
+    return plan, state
+
+
+def create_rolling_plan(start_date=None, horizon_days=11):
+    start_date = start_date or date.today()
+    plan, state = rolling_plan(start_date, horizon_days)
+    # Usa sempre il calendario appena aggiornato, non una copia vecchia.
+    current_events = st.session_state.events_cache or []
+    created, skipped = create_coach_week(plan, current_events)
+    refresh_events()
+    return plan, state, created, skipped
+
+
+def ensure_coach_horizon():
+    """Mantiene automaticamente una finestra futura di circa 1.5 settimane."""
+    start = st.session_state.get("coach_start_date")
+    if not start:
+        return 0
+    if start < date.today():
+        start = date.today()
+    _, _, created, _ = create_rolling_plan(start, st.session_state.coach_plan_horizon)
+    return len(created)
+
+
+def delete_workouts_on_dates(dates):
+    deleted = []
+    not_deleted = []
+    current_events = st.session_state.events_cache or []
+
+    for event in current_events:
+        start = parse_event_datetime(event.get("start_date_local"))
+        if not start or start.date() not in dates:
+            continue
+        if start.date() < date.today() or is_event_completed(event):
+            continue
+        if delete_intervals_event(event.get("id")):
+            deleted.append(start.date())
+        else:
+            not_deleted.append(start.date())
+
+    refresh_events()
+    return sorted(set(deleted)), sorted(set(not_deleted))
+
+
+def replan_after_changes(start_date=None):
+    """Riempi automaticamente i giorni futuri liberi senza sovrascrivere gli allenamenti."""
+    start_date = start_date or date.today()
+    return create_rolling_plan(start_date, st.session_state.coach_plan_horizon)
+
+
+def switch_event_mode(event, new_mode):
+    start = parse_event_datetime(event.get("start_date_local"))
+    if not start or start.date() < date.today() or is_event_completed(event):
+        return False
+
+    workout_type = workout_type_from_event(event)
+    duration = get_event_duration(event)
+    if new_mode == "Indoor":
+        description = generate_indoor_workout(workout_type, duration, ftp)
+        target = "POWER"
+        indoor = True
+    else:
+        description = generate_outdoor_workout(workout_type, duration, hr_max)
+        target = "HR"
+        indoor = False
+
+    return update_intervals_event(
+        event_id=event.get("id"),
+        name=f"{new_mode} • {workout_type}",
+        start_datetime=start,
+        end_datetime=start + timedelta(minutes=duration),
+        description=description,
+        indoor=indoor,
+        target=target
+    )
+
+
+def switch_today_mode(new_mode):
+    today = date.today()
+    candidates = []
+    for event in st.session_state.events_cache or []:
+        start = parse_event_datetime(event.get("start_date_local"))
+        if start and start.date() == today and not is_event_completed(event):
+            candidates.append(event)
+
+    if not candidates:
+        return False, "Oggi non c'è un allenamento futuro da convertire."
+
+    event = sorted(candidates, key=lambda e: e.get("start_date_local", ""))[0]
+    ok = switch_event_mode(event, new_mode)
+    if ok:
+        refresh_events()
+        return True, f"Ho convertito l'allenamento di oggi in {new_mode}."
+    return False, "Non sono riuscito a modificare l'allenamento di oggi."
+
+
+def apply_outdoor_until(until_date):
+    st.session_state.coach_outdoor_until = until_date
+    changed = 0
+    for event in list(st.session_state.events_cache or []):
+        start = parse_event_datetime(event.get("start_date_local"))
+        if not start or start.date() < date.today() or start.date() > until_date:
+            continue
+        if is_event_completed(event):
+            continue
+        if switch_event_mode(event, "Outdoor"):
+            changed += 1
+    refresh_events()
+    return changed
+
+
+def coach_process_message(message):
+    """Interpreta richieste operative comuni senza richiedere comandi rigidi."""
+    import re
+    text = message.strip()
+    t = text.lower()
+    responses = []
+
+    # 1) Inizio allenamento serio
+    dates = parse_coach_dates(text)
+    if ("iniz" in t or "cominci" in t or "part" in t) and ("allen" in t or "ser" in t) and dates:
+        start = dates[0]
+        st.session_state.coach_start_date = start
+        plan, state, created, skipped = replan_after_changes(start)
+        responses.append(
+            f"Perfetto. Considero **{start.strftime('%d/%m/%Y')}** come inizio del blocco serio. "
+            f"Ho pianificato circa {st.session_state.coach_plan_horizon} giorni, rispettando stato, recupero e disponibilità. "
+            f"Creati {len(created)} allenamenti."
+        )
+
+    # 2) Periodo outdoor-only
+    if ("solo" in t and "outdoor" in t) or ("fino al" in t and "outdoor" in t):
+        until_dates = dates
+        if until_dates:
+            until = max(until_dates)
+            changed = apply_outdoor_until(until)
+            _, _, created, _ = replan_after_changes(date.today())
+            responses.append(
+                f"Va bene: fino al **{until.strftime('%d/%m/%Y')}** imposto solo allenamenti Outdoor. "
+                f"Ho convertito {changed} allenamenti esistenti e aggiunto {len(created)} sessioni mancanti."
+            )
+
+    # 3) Giorni fuori / niente allenamento
+    if any(k in t for k in ["sono fuori", "non ci sono", "sono via", "non posso allenarmi", "fuori città"]):
+        if dates:
+            blackout = set(dates)
+            st.session_state.coach_blackout_dates.update(blackout)
+            deleted, failed = delete_workouts_on_dates(blackout)
+            _, _, created, _ = replan_after_changes(max(date.today(), min(blackout) + timedelta(days=1)))
+            date_text = ", ".join(d.strftime('%d/%m') for d in dates)
+            response = f"Segnato: niente allenamento il **{date_text}**."
+            if deleted:
+                response += f" Ho eliminato {len(deleted)} allenamenti e ripianificato i giorni successivi ({len(created)} nuovi)."
+            else:
+                response += " Ho adattato il calendario successivo senza sovrascrivere gli allenamenti già presenti."
+            if failed:
+                response += " Alcuni allenamenti non sono stati eliminati per un errore di sincronizzazione."
+            responses.append(response)
+
+    # 4) Cambio di oggi outdoor <-> indoor
+    if "oggi" in t and "indoor" in t and "outdoor" in t:
+        new_mode = "Indoor" if ("outdoor ad indoor" in t or "outdoor a indoor" in t) else "Outdoor"
+        ok, response = switch_today_mode(new_mode)
+        responses.append(response)
+
+    # 5) Richiesta esplicita di programmazione / ripianificazione
+    if not responses and any(k in t for k in ["programma", "pianifica", "ripianifica", "crea gli allenamenti", "preparami"]):
+        start = st.session_state.coach_start_date or date.today()
+        _, state, created, skipped = replan_after_changes(start)
+        responses.append(
+            f"Fatto. Ho controllato i prossimi {st.session_state.coach_plan_horizon} giorni e ho creato {len(created)} allenamenti mancanti. "
+            f"Stato attuale: **{state_label(state)}**."
+        )
+
+    if not responses:
+        responses.append(
+            "Ti seguo. Per ora posso gestire direttamente richieste come: "
+            "iniziare da una certa data, giorni in cui sei fuori, periodo solo Outdoor/Indoor, "
+            "ripianificazione e cambio dell'allenamento di oggi tra Indoor e Outdoor. "
+            "Esempio: *Dal 7 settembre cominciamo seriamente; il 9 e 10 sono fuori; fino al 13 solo Outdoor.*"
+        )
+
+    return "\n\n".join(responses)
+
+
+# =========================
 # LOAD DATA
 # =========================
 
@@ -1037,6 +1415,12 @@ if form is None and fitness is not None and fatigue is not None:
 coach_status = coach_state(
     fitness, fatigue, form, fitness_trend
 )
+
+# Se il blocco del Coach è già stato avviato, mantiene automaticamente
+# una finestra futura di circa 1.5 settimane senza sovrascrivere gli eventi esistenti.
+if st.session_state.coach_start_date:
+    ensure_coach_horizon()
+    events = st.session_state.events_cache or []
 
 
 # =========================
@@ -1813,253 +2197,96 @@ elif page == "AI Coach":
 
     show_page_title(
         "AI Coach",
-        "Il coach che crea, analizza e adatta il tuo piano."
+        "Scrivimi normalmente cosa vuoi cambiare: il Coach aggiorna il calendario su Intervals.icu."
     )
 
-    state = coach_state(
-        fitness,
-        fatigue,
-        form,
-        fitness_trend
-    )
+    state = coach_state(fitness, fatigue, form, fitness_trend)
 
     st.markdown(
         f"""
         <div class="coach-box">
-            <h3>🧠 Stato attuale del Coach</h3>
-            <p>
-                <b>Fitness:</b> {f"{fitness:.0f}" if fitness is not None else "—"}
-                &nbsp;&nbsp;
-                <b>Fatigue:</b> {f"{fatigue:.0f}" if fatigue is not None else "—"}
-                &nbsp;&nbsp;
-                <b>Form:</b> {f"{form:+.0f}" if form is not None else "—"}
-            </p>
-            <p><b>Stato interpretato:</b> {state_label(state)}</p>
+            <h3>🧠 Il tuo Coach</h3>
+            <p><b>Stato:</b> {state_label(state)}</p>
+            <p><b>Fitness:</b> {f"{fitness:.0f}" if fitness is not None else "—"}
+            &nbsp;&nbsp; <b>Fatigue:</b> {f"{fatigue:.0f}" if fatigue is not None else "—"}
+            &nbsp;&nbsp; <b>Form:</b> {f"{form:+.0f}" if form is not None else "—"}</p>
+            <p>Il Coach lavora con una finestra mobile di circa 1 settimana e mezza e la aggiorna mano a mano.</p>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-    st.subheader("⚙️ Generazione del piano")
-
-    st.write(
-        "Il Coach costruisce la settimana in base allo stato attuale. "
-        "Indoor = target di potenza/FTP; Outdoor = target tramite zone FC. "
-        "La distribuzione evita di trasformare ogni uscita in un allenamento duro."
+    st.subheader("💬 Parla con il Coach")
+    st.caption(
+        "Non servono comandi precisi. Puoi scrivere come parleresti a un allenatore. "
+        "Le modifiche vengono applicate direttamente al calendario."
     )
 
-    col1, col2 = st.columns(2)
+    examples = [
+        "Dal 7 settembre cominciamo gli allenamenti seri",
+        "Il 9 e 10 settembre sono fuori, elimina gli allenamenti e ripianifica",
+        "Fino al 13 settembre solo allenamenti outdoor",
+        "Cambia l'allenamento di oggi da outdoor a indoor"
+    ]
 
-    with col1:
+    for example in examples:
+        st.caption(f"💡 {example}")
 
-        indoor_days_names = st.multiselect(
-            "Giorni Indoor",
-            [
-                "Lunedì",
-                "Martedì",
-                "Giovedì",
-                "Venerdì",
-                "Sabato"
-            ],
-            default=[
-                "Lunedì",
-                "Martedì",
-                "Giovedì",
-                "Venerdì"
-            ]
-        )
+    for role, content in st.session_state.coach_chat:
+        with st.chat_message(role):
+            st.markdown(content)
 
-    with col2:
+    message = st.chat_input("Scrivi al Coach…")
 
-        outdoor_days_names = st.multiselect(
-            "Giorni Outdoor",
-            [
-                "Lunedì",
-                "Martedì",
-                "Giovedì",
-                "Venerdì",
-                "Sabato"
-            ],
-            default=[
-                "Sabato"
-            ]
-        )
-
-    day_map = {
-        "Lunedì": 0,
-        "Martedì": 1,
-        "Giovedì": 3,
-        "Venerdì": 4,
-        "Sabato": 5
-    }
-
-    indoor_days = {
-        day_map[name]
-        for name in indoor_days_names
-    }
-
-    outdoor_days = {
-        day_map[name]
-        for name in outdoor_days_names
-    }
-
-    overlap = indoor_days.intersection(
-        outdoor_days
-    )
-
-    if overlap:
-
-        st.warning(
-            "Hai selezionato lo stesso giorno sia Indoor "
-            "che Outdoor. Scegli una sola modalità per ogni giorno."
-        )
-
-    if st.button(
-        "🧠 Genera anteprima della settimana",
-        key="preview_coach_week"
-    ):
-
-        if overlap:
-
-            st.error(
-                "Correggi prima i giorni sovrapposti."
-            )
-
-        else:
-
-            next_monday = get_monday(
-                date.today()
-            )
-
-            plan, plan_state = build_week_plan(
-                start_date=next_monday,
-                ftp=ftp,
-                hr_max=hr_max,
-                fitness=fitness,
-                fatigue=fatigue,
-                form=form,
-                indoor_days=indoor_days,
-                outdoor_days=outdoor_days,
-                goal=goal
-            )
-
-            st.session_state.coach_preview = {
-                "plan": plan,
-                "state": plan_state
-            }
-
-    preview_data = st.session_state.get(
-        "coach_preview"
-    )
-
-    if preview_data:
-
-        st.divider()
-
-        st.subheader(
-            "📋 Anteprima generata dal Coach"
-        )
-
-        st.caption(
-            "Controlla il piano prima di inviarlo a Intervals.icu."
-        )
-
-        for workout in preview_data["plan"]:
-
-            mode_icon = (
-                "🏠"
-                if workout["mode"] == "Indoor"
-                else "🌳"
-            )
-
-            with st.container(border=True):
-
-                st.markdown(
-                    f"### {mode_icon} {workout['name']}"
-                )
-
-                st.write(
-                    f"**{workout['date'].strftime('%A %d/%m')}** "
-                    f"• {workout['duration']} min"
-                )
-
-                st.markdown(
-                    f"""
-                    <div class="workout-description">
-                    {workout['description']}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-        st.divider()
-
-        st.warning(
-            "Il pulsante seguente creerà gli allenamenti "
-            "su Intervals.icu. I giorni che hanno già un "
-            "allenamento non verranno sovrascritti."
-        )
-
-        if st.button(
-            "🚀 Crea questa settimana su Intervals.icu",
-            key="create_coach_week"
-        ):
-
-            created, skipped = create_coach_week(
-                preview_data["plan"],
-                events
-            )
-
-            refresh_events()
-
-            if created:
-
-                st.success(
-                    f"Creati {len(created)} allenamenti su Intervals.icu."
-                )
-
-            if skipped:
-
-                skipped_text = ", ".join(
-                    d.strftime("%d/%m")
-                    for d in skipped
-                )
-
-                st.info(
-                    "Giorni saltati perché avevano già "
-                    f"un allenamento: {skipped_text}"
-                )
-
-            if not created and not skipped:
-
-                st.error(
-                    "Nessun allenamento è stato creato."
-                )
+    if message:
+        st.session_state.coach_chat.append(("user", message))
+        response = coach_process_message(message)
+        st.session_state.coach_chat.append(("assistant", response))
+        st.rerun()
 
     st.divider()
+    st.subheader("⚙️ Regole attuali del piano")
 
-    st.subheader("🚧 Prossimi moduli del Coach")
-
-    st.write(
-        """
-        La base del Coach è ora pronta. I prossimi moduli saranno:
-
-        - analisi degli allenamenti realmente svolti;
-        - confronto programmato vs reale;
-        - analisi di potenza e frequenza cardiaca;
-        - RPE e sensazioni dell'atleta;
-        - carico acuto e cronico;
-        - rilevamento degli allenamenti saltati;
-        - modifica automatica dei giorni successivi;
-        - periodizzazione su più settimane;
-        - test FTP e aggiornamento automatico delle zone;
-        - pianificazione gara;
-        - conoscenze scientifiche aggiornate;
-        - vero modulo AI decisionale;
-        - aggiornamento automatico di Intervals.icu.
-        """
+    start_text = (
+        st.session_state.coach_start_date.strftime("%d/%m/%Y")
+        if st.session_state.coach_start_date else "Non impostata"
+    )
+    outdoor_until_text = (
+        st.session_state.coach_outdoor_until.strftime("%d/%m/%Y")
+        if st.session_state.coach_outdoor_until else "Nessun limite"
     )
 
+    st.write(f"**Inizio blocco serio:** {start_text}")
+    st.write(f"**Solo Outdoor fino a:** {outdoor_until_text}")
+    st.write(f"**Finestra di programmazione:** {st.session_state.coach_plan_horizon} giorni")
+
+    if st.session_state.coach_blackout_dates:
+        blackout_text = ", ".join(
+            d.strftime("%d/%m")
+            for d in sorted(st.session_state.coach_blackout_dates)
+            if d >= date.today()
+        )
+        st.write(f"**Giorni bloccati:** {blackout_text or 'nessuno'}")
+    else:
+        st.write("**Giorni bloccati:** nessuno")
+
+    st.caption(
+        "Settimana tipo attuale: lunedì e martedì Indoor, mercoledì riposo, "
+        "giovedì e venerdì Indoor, sabato Outdoor, domenica riposo. "
+        "Il Coach può cambiarla in base a ciò che gli chiedi."
+    )
+
+    if st.button("🔄 Controlla e completa i prossimi allenamenti", key="coach_replan_button"):
+        start = st.session_state.coach_start_date or date.today()
+        _, state, created, _ = replan_after_changes(start)
+        st.success(
+            f"Calendario controllato: creati {len(created)} allenamenti mancanti. Stato: {state_label(state)}."
+        )
+
+    if st.session_state.coach_chat:
+        if st.button("🗑️ Cancella conversazione", key="clear_coach_chat"):
+            st.session_state.coach_chat = []
+            st.rerun()
 
 # =========================
 # PROFILE
