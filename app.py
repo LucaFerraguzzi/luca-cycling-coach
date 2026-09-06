@@ -35,6 +35,10 @@ if "events_cache" not in st.session_state:
 st.markdown(
     """
     <style>
+    .stApp {
+        background-color: white;
+    }
+
     .main {
         background-color: white;
     }
