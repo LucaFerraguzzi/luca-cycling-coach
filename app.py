@@ -12,80 +12,172 @@ st.set_page_config(
 )
 
 # ============================================================
-# STILE
+# CSS
 # ============================================================
 
 st.markdown("""
 <style>
+
+    /* =========================
+       PAGINA PRINCIPALE
+       ========================= */
+
     .stApp {
         background-color: #f5f7fa;
+        color: #111827;
     }
+
+    .main {
+        color: #111827;
+    }
+
+    /* Testi generali della pagina */
+    .main p,
+    .main span,
+    .main label,
+    .main div {
+        color: #111827;
+    }
+
+    /* Titoli */
+    h1, h2, h3, h4 {
+        color: #111827 !important;
+    }
+
+    /* Caption */
+    .main small,
+    .main .stCaption {
+        color: #6b7280 !important;
+    }
+
+    /* =========================
+       SIDEBAR
+       ========================= */
 
     section[data-testid="stSidebar"] {
         background-color: #111827;
     }
 
-    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4,
     section[data-testid="stSidebar"] p,
     section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] div {
-        color: white;
+    section[data-testid="stSidebar"] label {
+        color: white !important;
     }
+
+    /* =========================
+       HEADER
+       ========================= */
 
     .title {
         font-size: 38px;
         font-weight: 800;
-        color: #111827;
+        color: #111827 !important;
         margin-bottom: 0;
     }
 
     .subtitle {
         font-size: 16px;
-        color: #6b7280;
+        color: #6b7280 !important;
         margin-bottom: 25px;
     }
 
-    .small-label {
-        color: #6b7280;
-        font-size: 13px;
-        font-weight: 700;
+    /* =========================
+       METRICHE
+       ========================= */
+
+    [data-testid="stMetricLabel"] {
+        color: #4b5563 !important;
     }
 
-    .big-number {
-        color: #111827;
-        font-size: 30px;
-        font-weight: 800;
+    [data-testid="stMetricValue"] {
+        color: #111827 !important;
     }
 
-    .section-title {
-        font-size: 22px;
-        font-weight: 800;
-        color: #111827;
-        margin-top: 15px;
-        margin-bottom: 12px;
+    [data-testid="stMetricDelta"] {
+        color: #4b5563 !important;
     }
+
+    /* =========================
+       CARD ALLENAMENTO
+       ========================= */
 
     .workout-description {
-        color: #4b5563;
+        color: #374151 !important;
         line-height: 1.6;
     }
+
+    .workout-description p,
+    .workout-description li {
+        color: #374151 !important;
+    }
+
+    /* =========================
+       COACH
+       ========================= */
 
     .coach-text {
-        color: #4b5563;
+        color: #374151 !important;
         line-height: 1.6;
     }
 
+    /* =========================
+       BOTTONI
+       ========================= */
+
+    .stButton > button {
+        color: #111827 !important;
+        background-color: white !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+    }
+
+    .stButton > button:hover {
+        border-color: #111827 !important;
+        color: #111827 !important;
+    }
+
+    /* =========================
+       INPUT
+       ========================= */
+
+    input {
+        color: #111827 !important;
+    }
+
+    /* =========================
+       SELECTBOX
+       ========================= */
+
+    div[data-baseweb="select"] {
+        color: #111827 !important;
+    }
+
+    div[data-baseweb="select"] > div {
+        color: #111827 !important;
+        background-color: white !important;
+    }
+
+    /* =========================
+       FOOTER
+       ========================= */
+
     .footer {
-        color: #9ca3af;
+        color: #9ca3af !important;
         font-size: 12px;
         text-align: center;
         margin-top: 35px;
     }
+
 </style>
 """, unsafe_allow_html=True)
 
 # ============================================================
-# SIDEBAR - PROFILO
+# SIDEBAR
 # ============================================================
 
 with st.sidebar:
@@ -200,31 +292,29 @@ with col1:
 with col2:
     st.metric(
         label="💪 Fitness",
-        value="—",
-        help="Lo collegheremo ai dati reali degli allenamenti."
+        value="—"
     )
 
 with col3:
     st.metric(
         label="😴 Fatigue",
-        value="—",
-        help="Lo calcoleremo dagli allenamenti effettuati."
+        value="—"
     )
 
 with col4:
     st.metric(
         label="📈 Form",
-        value="—",
-        help="Verrà calcolata automaticamente."
+        value="—"
     )
 
 # ============================================================
 # ALLENAMENTO DI OGGI
 # ============================================================
 
+st.divider()
+
 st.markdown(
-    '<div class="section-title">🏋️ Allenamento di oggi</div>',
-    unsafe_allow_html=True
+    "## 🏋️ Allenamento di oggi"
 )
 
 today_col1, today_col2 = st.columns([2, 1])
@@ -239,15 +329,13 @@ with today_col1:
         """
         <div class="workout-description">
 
-        **Struttura**
+        <strong>Struttura</strong><br><br>
 
-        🟢 10' — Riscaldamento  
-        🟢 40' — Z2 Endurance  
-        🟢 10' — Defaticamento  
+        🟢 10' — Riscaldamento<br>
+        🟢 40' — Z2 Endurance<br>
+        🟢 10' — Defaticamento<br><br>
 
-        <br>
-
-        **Obiettivo**
+        <strong>Obiettivo</strong><br><br>
 
         Costruire e mantenere una buona base aerobica
         lavorando a intensità controllata.
@@ -259,9 +347,11 @@ with today_col1:
 
 with today_col2:
 
-    st.info("### 🟢 Z2\n\n**60 min**")
-
-    st.write("Intensità: **bassa**")
+    st.info(
+        "🟢 **Z2 Endurance**\n\n"
+        "**60 minuti**\n\n"
+        "Intensità: **bassa**"
+    )
 
     if st.button(
         "▶️ Apri allenamento",
@@ -298,10 +388,7 @@ if st.session_state.get("show_workout", False):
 
 st.divider()
 
-st.markdown(
-    '<div class="section-title">📅 Piano della settimana</div>',
-    unsafe_allow_html=True
-)
+st.markdown("## 📅 Piano della settimana")
 
 days_plan = [
     ("Lunedì", "Z2 Endurance", "1h 30m", "🟢"),
@@ -342,10 +429,7 @@ for column, workout in zip(week_columns, days_plan):
 
 st.divider()
 
-st.markdown(
-    '<div class="section-title">🧠 Luca Cycling Coach</div>',
-    unsafe_allow_html=True
-)
+st.markdown("## 🧠 Luca Cycling Coach")
 
 coach_col1, coach_col2 = st.columns([2, 1])
 
@@ -383,21 +467,27 @@ with coach_col2:
 
 st.divider()
 
-st.markdown(
-    '<div class="section-title">📊 Progressi</div>',
-    unsafe_allow_html=True
-)
+st.markdown("## 📊 Progressi")
 
 progress1, progress2, progress3 = st.columns(3)
 
 with progress1:
-    st.metric("Tempo settimanale", "—")
+    st.metric(
+        "Tempo settimanale",
+        "—"
+    )
 
 with progress2:
-    st.metric("Carico settimanale", "—")
+    st.metric(
+        "Carico settimanale",
+        "—"
+    )
 
 with progress3:
-    st.metric("Allenamenti completati", "—")
+    st.metric(
+        "Allenamenti completati",
+        "—"
+    )
 
 # ============================================================
 # FOOTER
