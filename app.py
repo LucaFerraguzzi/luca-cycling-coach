@@ -30,6 +30,9 @@ if "activities_cache" not in st.session_state:
 if "athlete_profile_cache" not in st.session_state:
     st.session_state.athlete_profile_cache = None
 
+if "cycling_sport_settings" not in st.session_state:
+    st.session_state.cycling_sport_settings = None
+
 if "calendar_week_offset" not in st.session_state:
     st.session_state.calendar_week_offset = 0
 
@@ -199,8 +202,13 @@ st.markdown(
         padding: 14px 16px;
         margin-bottom: 12px;
     }
-    .profile-auto strong {
-        color: #172033;
+    .profile-auto,
+    .profile-auto * {
+        color: #172033 !important;
+    }
+    [data-testid="stSidebar"] .profile-auto,
+    [data-testid="stSidebar"] .profile-auto * {
+        color: #172033 !important;
     }
 
     .calendar-shell {
@@ -273,8 +281,24 @@ def get_intervals_events(start_date, end_date):
 
 
 def get_intervals_athlete_profile():
-    """Recupera automaticamente i dati atleta dal profilo Intervals.icu."""
-    url = f"{BASE_URL}/athlete/{INTERVALS_ATHLETE_ID}/profile"
+    """Recupera l'atleta completo da Intervals.icu, inclusi i sportSettings."""
+    url = f"{BASE_URL}/athlete/{INTERVALS_ATHLETE_ID}"
+    try:
+        response = requests.get(
+            url,
+            auth=intervals_auth(),
+            timeout=20
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data if isinstance(data, dict) else {}
+    except requests.exceptions.RequestException:
+        return {}
+
+
+def get_cycling_sport_settings():
+    """Recupera le impostazioni del ciclismo direttamente dalla sezione Ride."""
+    url = f"{BASE_URL}/athlete/{INTERVALS_ATHLETE_ID}/sport-settings/Ride"
     try:
         response = requests.get(
             url,
@@ -289,35 +313,51 @@ def get_intervals_athlete_profile():
 
 
 def get_athlete_settings():
-    """FTP/FC max dal profilo; peso dal profilo o dall'ultimo wellness."""
+    """FTP, peso e FC max dalla configurazione ciclismo di Intervals.icu.
+
+    La fonte principale è la sezione Sport Settings -> Ride:
+    FTP, indoor FTP e FC max sono specifici del ciclismo.
+    Il peso viene invece preso dal profilo atleta (icu_weight).
+    """
     profile = st.session_state.athlete_profile_cache or {}
-    wellness = st.session_state.wellness_cache or {}
+    cycling = st.session_state.get("cycling_sport_settings") or {}
 
+    # Il profilo /athlete/{id} espone il peso come icu_weight.
     weight = (
-        profile.get("weight")
+        profile.get("icu_weight")
+        or profile.get("weight")
         or profile.get("weight_kg")
-        or wellness.get("weight")
     )
 
-    ftp_value = (
-        profile.get("ftp")
-        or profile.get("FTP")
-    )
+    # La sezione Ride è la fonte autorevole per FTP e FC max del ciclismo.
+    ftp_value = cycling.get("ftp")
+    if ftp_value is None:
+        ftp_value = cycling.get("indoor_ftp")
 
     hr_max_value = (
-        profile.get("hr_max")
-        or profile.get("max_hr")
-        or profile.get("maximum_hr")
+        cycling.get("max_hr")
+        or cycling.get("hr_max")
+        or cycling.get("maximum_hr")
     )
 
-    # In alcuni account il valore più aggiornato dell'FTP è nello sportInfo del wellness.
-    sport_info = wellness.get("sportInfo") or wellness.get("sport_info") or []
-    if not ftp_value and isinstance(sport_info, list):
-        for sport in sport_info:
-            if str(sport.get("sport", "")).lower() in {"ride", "cycling", "bike"}:
-                ftp_value = sport.get("eftp") or sport.get("ftp")
-                if ftp_value:
+    # Fallback secondario: sportSettings contenuto nel profilo atleta.
+    if not cycling:
+        sport_settings = profile.get("sportSettings") or []
+        if isinstance(sport_settings, list):
+            for sport in sport_settings:
+                types = sport.get("types") or []
+                if any(
+                    str(t).lower() in {"ride", "virtualride"}
+                    for t in types
+                ):
+                    ftp_value = sport.get("ftp") or sport.get("indoor_ftp")
+                    hr_max_value = sport.get("max_hr") or sport.get("hr_max")
                     break
+
+    # Ultimo fallback per il peso: wellness più recente.
+    wellness = st.session_state.wellness_cache or {}
+    if weight is None and isinstance(wellness, dict):
+        weight = wellness.get("weight") or wellness.get("icu_weight")
 
     try:
         weight = float(weight) if weight is not None else 50.0
@@ -335,7 +375,6 @@ def get_athlete_settings():
         hr_max_value = 200
 
     return weight, ftp_value, hr_max_value
-
 
 def get_wellness_data():
     today = date.today()
@@ -575,6 +614,7 @@ def refresh_wellness():
 
 def refresh_athlete_profile():
     st.session_state.athlete_profile_cache = get_intervals_athlete_profile()
+    st.session_state.cycling_sport_settings = get_cycling_sport_settings()
 
 
 def refresh_activities():
@@ -618,6 +658,71 @@ def is_event_completed(event):
         return True
 
     return False
+
+
+def get_activity_for_event(event):
+    """Trova l'attività reale associata al workout pianificato."""
+    event_id = event.get("id")
+
+    # Collegamento esplicito presente sull'evento.
+    paired_id = (
+        event.get("paired_activity_id")
+        or event.get("activity_id")
+    )
+    if paired_id:
+        for activity in st.session_state.activities_cache or []:
+            if str(activity.get("id")) == str(paired_id):
+                return activity
+
+    # Collegamento esplicito presente sull'attività.
+    for activity in st.session_state.activities_cache or []:
+        if str(activity.get("paired_event_id")) == str(event_id):
+            return activity
+
+    # Alcune risposte API possono contenere l'evento direttamente.
+    paired = event.get("paired_activity")
+    if isinstance(paired, dict):
+        return paired
+
+    return None
+
+
+def get_event_execution_status(event):
+    """Restituisce il simbolo di esecuzione per un workout passato.
+
+    Intervals.icu espone `activity.compliance`: 80-120% è considerato
+    conforme/verde. Qui lo traduciamo volutamente in soli due stati:
+    ✓ verde = eseguito come previsto; ✕ rosso = non conforme o non eseguito.
+    """
+    start = parse_event_datetime(event.get("start_date_local"))
+    if not start or start.date() >= date.today():
+        return ""
+
+    activity = get_activity_for_event(event)
+    if activity is None:
+        return "✕"
+
+    compliance = activity.get("compliance")
+    try:
+        if compliance is not None:
+            value = float(compliance)
+            if 80 <= value <= 120:
+                return "✓"
+            return "✕"
+    except (TypeError, ValueError):
+        pass
+
+    # Fallback: se non c'è compliance ma l'attività è accoppiata,
+    # confrontiamo la durata reale con quella pianificata.
+    planned = get_event_duration(event)
+    actual_seconds = activity.get("moving_time") or activity.get("elapsed_time")
+    if planned and actual_seconds:
+        ratio = (float(actual_seconds) / 60.0) / float(planned)
+        return "✓" if 0.80 <= ratio <= 1.20 else "✕"
+
+    # L'attività è stata eseguita ma Intervals non ha fornito compliance:
+    # non la consideriamo automaticamente corretta.
+    return "✕"
 
 
 # =========================
@@ -1491,7 +1596,10 @@ wellness = st.session_state.wellness_cache
 # SIDEBAR PROFILE
 # =========================
 
-if st.session_state.athlete_profile_cache is None:
+if (
+    st.session_state.athlete_profile_cache is None
+    or st.session_state.cycling_sport_settings is None
+):
     refresh_athlete_profile()
 
 weight, ftp, hr_max = get_athlete_settings()
@@ -2238,6 +2346,16 @@ elif page == "Calendario":
         .event-dot.completed {
             box-shadow:inset 0 0 0 1px #10b981;
         }
+        .execution-status {
+            font-weight:900;
+            margin-right:4px;
+        }
+        .execution-status.ok {
+            color:#16a34a !important;
+        }
+        .execution-status.bad {
+            color:#dc2626 !important;
+        }
         .intensity-recovery { border-left-color:#60a5fa; background:#eff6ff; }
         .intensity-endurance { border-left-color:#22c55e; background:#f0fdf4; }
         .intensity-tempo { border-left-color:#eab308; background:#fefce8; }
@@ -2307,10 +2425,17 @@ elif page == "Calendario":
                     workout_type = workout_type_from_event(event)
                     intensity_class = workout_intensity_class(workout_type)
                     icon = "🏠" if "Indoor" in str(event.get("name", "")) else "🌳"
-                    status = "✓ " if completed else ""
+
+                    execution = get_event_execution_status(event)
+                    if execution == "✓":
+                        status_html = "<span class='execution-status ok'>✓</span>"
+                    elif execution == "✕":
+                        status_html = "<span class='execution-status bad'>✕</span>"
+                    else:
+                        status_html = ""
 
                     label = (
-                        f"{time_text} {status}{icon} "
+                        f"{time_text} {status_html}{icon} "
                         f"{workout_intensity_label(workout_type)}"
                     )
 
@@ -2345,7 +2470,7 @@ elif page == "Calendario":
             <span class="legend-item"><span class="legend-color" style="background:#a855f7"></span>VO2max</span>
             <span class="legend-item">🏠 Indoor</span>
             <span class="legend-item">🌳 Outdoor</span>
-            <span class="legend-item">✓ Completato</span>
+            <span class="legend-item"><b style="color:#16a34a">✓</b> Eseguito correttamente</span><span class="legend-item"><b style="color:#dc2626">✕</b> Eseguito fuori target / non eseguito</span>
         </div>
         """,
         unsafe_allow_html=True
