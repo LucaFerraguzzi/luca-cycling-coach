@@ -1094,6 +1094,31 @@ def workout_type_from_event(event):
     return "Endurance"
 
 
+def workout_intensity_class(workout_type):
+    """Classe colore per il calendario, basata sull'intensità fisiologica."""
+    classes = {
+        "Recovery": "intensity-recovery",
+        "Endurance": "intensity-endurance",
+        "Tempo": "intensity-tempo",
+        "Sweet Spot": "intensity-sweetspot",
+        "Threshold": "intensity-threshold",
+        "VO2max": "intensity-vo2",
+    }
+    return classes.get(workout_type, "intensity-endurance")
+
+
+def workout_intensity_label(workout_type):
+    labels = {
+        "Recovery": "Recupero",
+        "Endurance": "Endurance",
+        "Tempo": "Tempo",
+        "Sweet Spot": "Sweet Spot",
+        "Threshold": "Soglia",
+        "VO2max": "VO2max",
+    }
+    return labels.get(workout_type, workout_type)
+
+
 def mode_for_date(target_date):
     outdoor_until = st.session_state.get("coach_outdoor_until")
     if outdoor_until and target_date <= outdoor_until:
@@ -1389,8 +1414,6 @@ with st.sidebar:
         [
             "Dashboard",
             "Calendario",
-            "Allenamenti",
-            "Analisi",
             "AI Coach",
             "Profilo"
         ],
@@ -1829,6 +1852,73 @@ if page == "Dashboard":
 
     st.divider()
 
+    st.subheader("📊 Analisi della situazione")
+
+    analysis_col1, analysis_col2, analysis_col3 = st.columns(3)
+
+    with analysis_col1:
+        st.metric(
+            "Fitness / CTL",
+            f"{fitness:.0f}" if fitness is not None else "—"
+        )
+
+    with analysis_col2:
+        st.metric(
+            "Fatigue / ATL",
+            f"{fatigue:.0f}" if fatigue is not None else "—"
+        )
+
+    with analysis_col3:
+        st.metric(
+            "Form / TSB",
+            f"{form:+.0f}" if form is not None else "—"
+        )
+
+    if coach_status == "training":
+        st.success(
+            "🟢 Il carico sta costruendo fitness: il trend è positivo."
+        )
+    elif coach_status == "detraining":
+        st.warning(
+            "🔵 Il fitness è in calo: serve continuità per tornare a costruire carico."
+        )
+    elif coach_status == "loaded":
+        st.warning(
+            "🟠 Il carico recente è elevato: il recupero va protetto."
+        )
+    elif coach_status == "overreaching":
+        st.error(
+            "🔴 Il carico è molto elevato rispetto alla capacità di recupero: meglio privilegiare il recupero."
+        )
+    elif coach_status == "recovery":
+        st.success(
+            "🟢 Sei in una condizione fresca: puoi sostenere una sessione di qualità se il resto dei segnali è positivo."
+        )
+    else:
+        st.info(
+            "🟡 Il carico appare relativamente stabile."
+        )
+
+    if fitness_trend is not None:
+        st.caption(
+            f"Trend Fitness del Coach negli ultimi ~14 giorni: {fitness_trend:+.1f}"
+        )
+
+    if coach_history:
+        chart_data = {
+            "Fitness": [round(item["ctl"], 1) for item in coach_history],
+            "Fatigue": [round(item["atl"], 1) for item in coach_history],
+        }
+        st.line_chart(chart_data, height=240)
+
+    st.caption(
+        "Fitness e Fatigue sono stime del Coach basate sul carico degli allenamenti "
+        "disponibili; quando Intervals.icu fornisce già il training load, viene usato "
+        "come riferimento."
+    )
+
+    st.divider()
+
     st.subheader("📅 Prossimi allenamenti")
 
     shown = 0
@@ -1893,13 +1983,16 @@ elif page == "Calendario":
         "Vista mensile dei tuoi allenamenti, sincronizzata con Intervals.icu."
     )
 
-    # Stato mese corrente
     if "calendar_month_offset" not in st.session_state:
         st.session_state.calendar_month_offset = 0
 
     today = date.today()
     first_of_month = date(today.year, today.month, 1)
-    month_date = (first_of_month + timedelta(days=32 * st.session_state.calendar_month_offset)).replace(day=1)
+    month_date = (
+        first_of_month
+        + timedelta(days=32 * st.session_state.calendar_month_offset)
+    ).replace(day=1)
+
     month_names = [
         "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
@@ -1911,11 +2004,13 @@ elif page == "Calendario":
             st.session_state.calendar_month_offset -= 1
             st.session_state.selected_event = None
             st.rerun()
+
     with nav2:
         st.markdown(
             f"<h2 style='text-align:center;margin:0'>{month_names[month_date.month-1]} {month_date.year}</h2>",
             unsafe_allow_html=True
         )
+
     with nav3:
         if st.button("Mese successivo →", key="calendar_next_month"):
             st.session_state.calendar_month_offset += 1
@@ -1923,15 +2018,19 @@ elif page == "Calendario":
             st.rerun()
 
     st.write("")
-    if st.button("📍 Torna a oggi", key="calendar_today"):
-        st.session_state.calendar_month_offset = 0
-        st.rerun()
 
-    if st.button("🔄 Aggiorna calendario", key="refresh_calendar_month"):
-        refresh_events()
-        st.rerun()
+    action1, action2 = st.columns([1, 1])
+    with action1:
+        if st.button("📍 Torna a oggi", key="calendar_today"):
+            st.session_state.calendar_month_offset = 0
+            st.session_state.selected_event = None
+            st.rerun()
 
-    # Raggruppa gli allenamenti per giorno
+    with action2:
+        if st.button("🔄 Aggiorna calendario", key="refresh_calendar_month"):
+            refresh_events()
+            st.rerun()
+
     events_by_day = {}
     for event in events:
         start = parse_event_datetime(event.get("start_date_local"))
@@ -1942,211 +2041,171 @@ elif page == "Calendario":
     cal = pycalendar.Calendar(firstweekday=0)
     weeks = cal.monthdatescalendar(month_date.year, month_date.month)
 
-    st.markdown("""
-    <style>
-    .month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:10px; }
-    .day-head { text-align:center; font-weight:700; padding:8px 2px; color:#374151; }
-    .day-cell { min-height:115px; border:1px solid #e5e7eb; border-radius:10px; padding:8px; background:#fff; }
-    .day-out { background:#f9fafb; color:#9ca3af; }
-    .day-number { font-weight:700; font-size:14px; margin-bottom:6px; }
-    .today-dot { display:inline-block; border-radius:50%; width:25px; height:25px; line-height:25px; text-align:center; background:#111827; color:white; }
-    .event-dot { margin:4px 0; padding:5px 7px; border-radius:7px; background:#f3f4f6; font-size:12px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-    .event-dot.completed { background:#ecfdf5; }
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <style>
+        .month-grid {
+            display:grid;
+            grid-template-columns:repeat(7,1fr);
+            gap:6px;
+            margin-top:10px;
+        }
+        .day-head {
+            text-align:center;
+            font-weight:700;
+            padding:8px 2px;
+            color:#374151;
+        }
+        .calendar-day {
+            min-height:125px;
+            border:1px solid #e5e7eb;
+            border-radius:10px;
+            padding:7px;
+            background:#fff;
+        }
+        .calendar-day.outside {
+            background:#f9fafb;
+            opacity:.62;
+        }
+        .calendar-number {
+            font-weight:700;
+            font-size:14px;
+            margin-bottom:6px;
+        }
+        .today-number {
+            display:inline-block;
+            border-radius:50%;
+            width:25px;
+            height:25px;
+            line-height:25px;
+            text-align:center;
+            background:#111827;
+            color:white !important;
+        }
+        .event-dot {
+            display:block;
+            margin:4px 0;
+            padding:5px 7px;
+            border-radius:7px;
+            border-left:5px solid #9ca3af;
+            background:#f3f4f6;
+            font-size:12px;
+            overflow:hidden;
+            white-space:nowrap;
+            text-overflow:ellipsis;
+        }
+        .event-dot.completed {
+            box-shadow:inset 0 0 0 1px #10b981;
+        }
+        .intensity-recovery { border-left-color:#60a5fa; background:#eff6ff; }
+        .intensity-endurance { border-left-color:#22c55e; background:#f0fdf4; }
+        .intensity-tempo { border-left-color:#eab308; background:#fefce8; }
+        .intensity-sweetspot { border-left-color:#f97316; background:#fff7ed; }
+        .intensity-threshold { border-left-color:#ef4444; background:#fef2f2; }
+        .intensity-vo2 { border-left-color:#a855f7; background:#faf5ff; }
+        .calendar-legend {
+            display:flex;
+            flex-wrap:wrap;
+            gap:10px 18px;
+            margin-top:8px;
+            color:#4b5563;
+            font-size:13px;
+        }
+        .legend-item {
+            display:flex;
+            align-items:center;
+            gap:6px;
+        }
+        .legend-color {
+            width:11px;
+            height:11px;
+            border-radius:3px;
+            display:inline-block;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
     headers = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
-    header_html = "<div class='month-grid'>" + "".join(f"<div class='day-head'>{h}</div>" for h in headers) + "</div>"
+    header_html = (
+        "<div class='month-grid'>"
+        + "".join(f"<div class='day-head'>{h}</div>" for h in headers)
+        + "</div>"
+    )
     st.markdown(header_html, unsafe_allow_html=True)
 
-    # HTML griglia + pulsanti Streamlit sotto ogni cella con eventi.
     for week_index, week in enumerate(weeks):
         cols = st.columns(7, gap="small")
+
         for col_index, day in enumerate(week):
             with cols[col_index]:
                 in_month = day.month == month_date.month
-                day_events = sorted(events_by_day.get(day, []), key=lambda e: e.get("start_date_local", ""))
-                number_html = f"<span class='{'today-dot' if day == today else ''}'>{day.day}</span>"
-                if not in_month:
-                    st.markdown(f"<div style='color:#9ca3af;font-weight:700'>{number_html}</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<div style='font-weight:700;margin-bottom:4px'>{number_html}</div>", unsafe_allow_html=True)
+                day_events = sorted(
+                    events_by_day.get(day, []),
+                    key=lambda e: e.get("start_date_local", "")
+                )
+
+                day_class = "calendar-day" if in_month else "calendar-day outside"
+                number_class = "today-number" if day == today else ""
+                st.markdown(
+                    f"<div class='{day_class}'>"
+                    f"<div class='calendar-number'>"
+                    f"<span class='{number_class}'>{day.day}</span>"
+                    f"</div></div>",
+                    unsafe_allow_html=True
+                )
+
                 for ev_index, event in enumerate(day_events):
                     completed = is_event_completed(event)
-                    icon = "✓" if completed else "•"
                     start_dt = parse_event_datetime(event.get("start_date_local"))
                     time_text = start_dt.strftime("%H:%M") if start_dt else ""
-                    name = event.get("name", "Allenamento")
-                    short_name = name.replace("Indoor • ", "🏠 ").replace("Outdoor • ", "🌳 ")
-                    if completed:
-                        short_name = "✓ " + short_name
+
+                    workout_type = workout_type_from_event(event)
+                    intensity_class = workout_intensity_class(workout_type)
+                    icon = "🏠" if "Indoor" in str(event.get("name", "")) else "🌳"
+                    status = "✓ " if completed else ""
+
+                    label = (
+                        f"{time_text} {status}{icon} "
+                        f"{workout_intensity_label(workout_type)}"
+                    )
+
                     st.markdown(
-                        f"<div class='event-dot {'completed' if completed else ''}' title='{name}'>{time_text} {short_name}</div>",
+                        f"<div class='event-dot {intensity_class} "
+                        f"{'completed' if completed else ''}' "
+                        f"title='{event.get('name', 'Allenamento')}'>"
+                        f"{label}</div>",
                         unsafe_allow_html=True
                     )
-                    if st.button("Apri", key=f"month_event_{event.get('id')}_{week_index}_{ev_index}", use_container_width=True):
+
+                    if st.button(
+                        "Apri",
+                        key=f"month_event_{event.get('id')}_{week_index}_{ev_index}",
+                        use_container_width=True
+                    ):
                         st.session_state.selected_event = event.get("id")
                         st.rerun()
-                if not day_events and in_month:
+
+                if in_month and not day_events:
                     st.caption(" ")
 
     st.divider()
-    st.caption("• = allenamento programmato   ✓ = completato   🏠 = Indoor   🌳 = Outdoor")
-
-
-# =========================
-# WORKOUTS
-# =========================
-
-elif page == "Allenamenti":
-
-    show_page_title(
-        "Allenamenti",
-        "I prossimi 5 allenamenti presenti su Intervals.icu."
-    )
-
-    today = date.today()
-
-    future_events = []
-
-    for event in events:
-
-        start = parse_event_datetime(
-            event.get("start_date_local")
-        )
-
-        if start and start.date() >= today:
-            future_events.append(event)
-
-    future_events.sort(
-        key=lambda x: x.get(
-            "start_date_local",
-            ""
-        )
-    )
-
-    future_events = future_events[:5]
-
-    if not future_events:
-
-        st.info(
-            "Non ci sono prossimi allenamenti programmati."
-        )
-
-    else:
-
-        for event in future_events:
-
-            start = parse_event_datetime(
-                event.get("start_date_local")
-            )
-
-            duration = get_event_duration(event)
-
-            completed = is_event_completed(event)
-
-            with st.container(border=True):
-
-                if start:
-
-                    prefix = "✅ " if completed else ""
-
-                    st.caption(
-                        f"{prefix}{start.strftime('%d/%m/%Y — %H:%M')}"
-                    )
-
-                prefix = "✅ " if completed else ""
-
-                st.subheader(
-                    f"{prefix}{event.get('name', 'Allenamento')}"
-                )
-
-                st.write(
-                    f"Durata: **{duration} minuti**"
-                )
-
-                if completed:
-
-                    st.success(
-                        "Allenamento completato"
-                    )
-
-                if st.button(
-                    "Apri allenamento",
-                    key=f"workout_{event.get('id')}"
-                ):
-
-                    st.session_state.selected_event = (
-                        event.get("id")
-                    )
-
-                    st.rerun()
-
-
-# =========================
-# ANALYSIS
-# =========================
-
-elif page == "Analisi":
-
-    show_page_title(
-        "Analisi",
-        "Analisi della tua situazione attuale."
-    )
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.metric(
-            "Fitness",
-            f"{fitness:.0f}" if fitness is not None else "—"
-        )
-
-    with col2:
-        st.metric(
-            "Fatigue",
-            f"{fatigue:.0f}" if fatigue is not None else "—"
-        )
-
-    with col3:
-        st.metric(
-            "Form",
-            f"{form:+.0f}" if form is not None else "—"
-        )
-
-    st.divider()
-
-    st.subheader("Profilo")
-
-    st.write(
-        f"Peso: **{weight:.1f} kg**"
-    )
-
-    st.write(
-        f"FTP: **{ftp} W**"
-    )
-
-    st.write(
-        f"FTP relativo: **{watts_per_kg:.2f} W/kg**"
-    )
-
-    st.write(
-        f"FC max: **{hr_max} bpm**"
-    )
-
-    st.divider()
-
-    st.subheader("🚦 Stato del carico")
-    st.success(state_label(coach_status)) if coach_status in {"training", "recovery"} else st.warning(state_label(coach_status))
-    if fitness_trend is not None:
-        st.caption(f"Trend Fitness del Coach negli ultimi ~14 giorni: {fitness_trend:+.1f}")
-
-    st.divider()
-
-    st.info(
-        "Il prossimo step sarà aggiungere i grafici "
-        "storici e l'analisi automatica della risposta "
-        "agli allenamenti."
+    st.markdown(
+        """
+        <div class="calendar-legend">
+            <span class="legend-item"><span class="legend-color" style="background:#60a5fa"></span>Recupero</span>
+            <span class="legend-item"><span class="legend-color" style="background:#22c55e"></span>Endurance</span>
+            <span class="legend-item"><span class="legend-color" style="background:#eab308"></span>Tempo</span>
+            <span class="legend-item"><span class="legend-color" style="background:#f97316"></span>Sweet Spot</span>
+            <span class="legend-item"><span class="legend-color" style="background:#ef4444"></span>Soglia</span>
+            <span class="legend-item"><span class="legend-color" style="background:#a855f7"></span>VO2max</span>
+            <span class="legend-item">🏠 Indoor</span>
+            <span class="legend-item">🌳 Outdoor</span>
+            <span class="legend-item">✓ Completato</span>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
 
