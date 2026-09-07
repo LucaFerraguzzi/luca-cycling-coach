@@ -186,14 +186,6 @@ st.markdown(
         color: #172033 !important;
     }
 
-    .dashboard-chart-card {
-        background: rgba(255,255,255,.86);
-        border: 1px solid rgba(148,163,184,.24);
-        border-radius: 18px;
-        padding: 18px;
-        box-shadow: 0 10px 28px rgba(30,41,59,.07);
-        margin-top: 10px;
-    }
 
     .profile-auto {
         background: linear-gradient(135deg, #f8fafc 0%, #eef4ff 100%);
@@ -2097,73 +2089,7 @@ if page == "Dashboard":
             f"Trend Fitness del Coach negli ultimi ~14 giorni: {fitness_trend:+.1f}"
         )
 
-    if coach_history:
-        st.markdown('<div class="dashboard-chart-card">', unsafe_allow_html=True)
-        st.markdown("### 📈 Andamento Fitness e Fatigue")
-
-        chart_range = st.selectbox(
-            "Periodo",
-            [7, 14, 30],
-            format_func=lambda x: f"Ultimi {x} giorni",
-            index=1,
-            key="dashboard_chart_range"
-        )
-
-        history_to_show = coach_history[-chart_range:]
-        chart_data = {
-            "Data": [item["date"].strftime("%d/%m") for item in history_to_show],
-            "Fitness": [round(item["ctl"], 1) for item in history_to_show],
-            "Fatigue": [round(item["atl"], 1) for item in history_to_show],
-        }
-
-        import plotly.graph_objects as go
-
-        fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(
-                x=chart_data["Data"],
-                y=chart_data["Fitness"],
-                mode="lines",
-                name="Fitness",
-                line=dict(width=3),
-            )
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=chart_data["Data"],
-                y=chart_data["Fatigue"],
-                mode="lines",
-                name="Fatigue",
-                line=dict(width=3),
-            )
-        )
-        fig.update_layout(
-            height=280,
-            margin=dict(l=10, r=10, t=10, b=10),
-            hovermode=False,
-            dragmode=False,
-            showlegend=True,
-            legend=dict(orientation="h", y=1.08, x=0),
-            xaxis=dict(fixedrange=True, title=None),
-            yaxis=dict(fixedrange=True, title=None),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-        )
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-            config={
-                "staticPlot": True,
-                "displayModeBar": False,
-                "displaylogo": False,
-            },
-        )
-
-        st.caption(
-            "Grafico non trascinabile: puoi solo cambiare il periodo tra 7, 14 e 30 giorni. "
-            "Fitness e Fatigue sono stime del Coach basate sul carico disponibile."
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
+    
 
     st.divider()
 
