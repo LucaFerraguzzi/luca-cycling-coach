@@ -27,6 +27,9 @@ if "wellness_cache" not in st.session_state:
 if "activities_cache" not in st.session_state:
     st.session_state.activities_cache = None
 
+if "athlete_profile_cache" not in st.session_state:
+    st.session_state.athlete_profile_cache = None
+
 if "calendar_week_offset" not in st.session_state:
     st.session_state.calendar_week_offset = 0
 
@@ -67,25 +70,33 @@ if "coach_preview" not in st.session_state:
 st.markdown(
     """
     <style>
-    .stApp { background-color: white; }
-    .main { background-color: white; }
+    .stApp {
+        background: linear-gradient(180deg, #eef2f7 0%, #f7f9fc 45%, #eef2f7 100%);
+    }
+    [data-testid="stAppViewContainer"] {
+        background: transparent;
+    }
+    .main {
+        background: transparent;
+    }
     .block-container {
+        max-width: 1450px;
         padding-top: 2rem;
         padding-bottom: 3rem;
     }
 
     h1, h2, h3, h4 {
-        color: #111827 !important;
+        color: #172033 !important;
+        letter-spacing: -0.02em;
     }
-
     p, span, label {
-        color: #111827;
+        color: #273449;
     }
 
     [data-testid="stSidebar"] {
-        background-color: #111827 !important;
+        background: linear-gradient(180deg, #101827 0%, #172337 100%) !important;
+        border-right: 1px solid rgba(255,255,255,.06);
     }
-
     [data-testid="stSidebar"] h1,
     [data-testid="stSidebar"] h2,
     [data-testid="stSidebar"] h3,
@@ -96,102 +107,108 @@ st.markdown(
     [data-testid="stSidebar"] div {
         color: white !important;
     }
-
-    [data-testid="stSidebar"] [role="radiogroup"] label {
-        color: white !important;
-    }
-
+    [data-testid="stSidebar"] [role="radiogroup"] label,
     [data-testid="stSidebar"] [role="radiogroup"] label span {
         color: white !important;
     }
-
     [data-testid="stSidebar"] input {
-        color: #111827 !important;
+        color: #172033 !important;
         background-color: white !important;
     }
-
-    [data-testid="stSidebar"] .stNumberInput input,
-    [data-testid="stSidebar"] .stTextInput input {
-        color: #111827 !important;
-        background-color: white !important;
-    }
-
     [data-testid="stSidebar"] div[data-baseweb="select"] {
         background-color: white !important;
     }
-
     [data-testid="stSidebar"] div[data-baseweb="select"] * {
-        color: #111827 !important;
+        color: #172033 !important;
     }
 
     .stButton > button {
-        background-color: #111827 !important;
+        background: #172033 !important;
         color: white !important;
-        border: none !important;
-        border-radius: 8px !important;
+        border: 0 !important;
+        border-radius: 10px !important;
+        box-shadow: 0 4px 12px rgba(23,32,51,.12);
     }
-
+    .stButton > button:hover {
+        background: #2d3a52 !important;
+        color: white !important;
+        transform: translateY(-1px);
+    }
     .stButton > button p,
     .stButton > button span,
     .stButton > button div {
         color: white !important;
     }
 
-    .stButton > button:hover {
-        background-color: #374151 !important;
-        color: white !important;
+    [data-testid="stMetric"] {
+        background: rgba(255,255,255,.88);
+        border: 1px solid rgba(148,163,184,.25);
+        border-radius: 16px;
+        padding: 14px 16px;
+        box-shadow: 0 8px 24px rgba(30,41,59,.07);
     }
-
-    .stButton > button:hover p,
-    .stButton > button:hover span,
-    .stButton > button:hover div {
-        color: white !important;
-    }
-
     [data-testid="stMetricValue"] {
-        color: #111827 !important;
+        color: #172033 !important;
     }
-
     [data-testid="stMetricLabel"] {
-        color: #4b5563 !important;
+        color: #64748b !important;
     }
 
-    .workout-card {
-        background: white;
-        border-radius: 12px;
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background: rgba(255,255,255,.78);
+        border: 1px solid rgba(148,163,184,.22) !important;
+        border-radius: 16px !important;
+        box-shadow: 0 8px 24px rgba(30,41,59,.06);
+    }
+
+    .workout-card, .connected-app, .coach-box {
+        background: rgba(255,255,255,.82);
+        border-radius: 16px;
         padding: 18px;
         margin-bottom: 12px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid rgba(148,163,184,.22);
+        box-shadow: 0 8px 24px rgba(30,41,59,.06);
     }
 
     .workout-description {
-        color: #111827 !important;
-        background-color: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
+        color: #172033 !important;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
         padding: 15px;
         white-space: pre-wrap;
         line-height: 1.5;
     }
-
     .workout-description * {
-        color: #111827 !important;
+        color: #172033 !important;
     }
 
-    .connected-app {
-        background-color: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 10px;
-    }
-
-    .coach-box {
-        background-color: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
+    .dashboard-chart-card {
+        background: rgba(255,255,255,.86);
+        border: 1px solid rgba(148,163,184,.24);
+        border-radius: 18px;
         padding: 18px;
+        box-shadow: 0 10px 28px rgba(30,41,59,.07);
+        margin-top: 10px;
+    }
+
+    .profile-auto {
+        background: linear-gradient(135deg, #f8fafc 0%, #eef4ff 100%);
+        border: 1px solid #dbe4f0;
+        border-radius: 14px;
+        padding: 14px 16px;
         margin-bottom: 12px;
+    }
+    .profile-auto strong {
+        color: #172033;
+    }
+
+    .calendar-shell {
+        background: rgba(255,255,255,.72);
+        border: 1px solid rgba(148,163,184,.25);
+        border-radius: 20px;
+        padding: 12px;
+        box-shadow: 0 12px 30px rgba(30,41,59,.07);
     }
     </style>
     """,
@@ -253,6 +270,71 @@ def get_intervals_events(start_date, end_date):
             f"Errore nella connessione a Intervals.icu: {e}"
         )
         return []
+
+
+def get_intervals_athlete_profile():
+    """Recupera automaticamente i dati atleta dal profilo Intervals.icu."""
+    url = f"{BASE_URL}/athlete/{INTERVALS_ATHLETE_ID}/profile"
+    try:
+        response = requests.get(
+            url,
+            auth=intervals_auth(),
+            timeout=20
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data if isinstance(data, dict) else {}
+    except requests.exceptions.RequestException:
+        return {}
+
+
+def get_athlete_settings():
+    """FTP/FC max dal profilo; peso dal profilo o dall'ultimo wellness."""
+    profile = st.session_state.athlete_profile_cache or {}
+    wellness = st.session_state.wellness_cache or {}
+
+    weight = (
+        profile.get("weight")
+        or profile.get("weight_kg")
+        or wellness.get("weight")
+    )
+
+    ftp_value = (
+        profile.get("ftp")
+        or profile.get("FTP")
+    )
+
+    hr_max_value = (
+        profile.get("hr_max")
+        or profile.get("max_hr")
+        or profile.get("maximum_hr")
+    )
+
+    # In alcuni account il valore più aggiornato dell'FTP è nello sportInfo del wellness.
+    sport_info = wellness.get("sportInfo") or wellness.get("sport_info") or []
+    if not ftp_value and isinstance(sport_info, list):
+        for sport in sport_info:
+            if str(sport.get("sport", "")).lower() in {"ride", "cycling", "bike"}:
+                ftp_value = sport.get("eftp") or sport.get("ftp")
+                if ftp_value:
+                    break
+
+    try:
+        weight = float(weight) if weight is not None else 50.0
+    except (TypeError, ValueError):
+        weight = 50.0
+
+    try:
+        ftp_value = int(round(float(ftp_value))) if ftp_value is not None else 160
+    except (TypeError, ValueError):
+        ftp_value = 160
+
+    try:
+        hr_max_value = int(round(float(hr_max_value))) if hr_max_value is not None else 200
+    except (TypeError, ValueError):
+        hr_max_value = 200
+
+    return weight, ftp_value, hr_max_value
 
 
 def get_wellness_data():
@@ -489,6 +571,10 @@ def refresh_events():
 
 def refresh_wellness():
     st.session_state.wellness_cache = get_wellness_data()
+
+
+def refresh_athlete_profile():
+    st.session_state.athlete_profile_cache = get_intervals_athlete_profile()
 
 
 def refresh_activities():
@@ -1405,6 +1491,11 @@ wellness = st.session_state.wellness_cache
 # SIDEBAR PROFILE
 # =========================
 
+if st.session_state.athlete_profile_cache is None:
+    refresh_athlete_profile()
+
+weight, ftp, hr_max = get_athlete_settings()
+
 with st.sidebar:
     st.title("🚴 Luca Cycling Coach")
     st.divider()
@@ -1423,29 +1514,22 @@ with st.sidebar:
     st.divider()
     st.subheader("Profilo")
 
-    weight = st.number_input(
-        "Peso (kg)",
-        min_value=30.0,
-        max_value=150.0,
-        value=50.0,
-        step=0.5
+    st.markdown(
+        f"""
+        <div class="profile-auto">
+            <strong>⚡ FTP</strong><br>{ftp} W
+        </div>
+        <div class="profile-auto">
+            <strong>⚖️ Peso</strong><br>{weight:.1f} kg
+        </div>
+        <div class="profile-auto">
+            <strong>❤️ FC max</strong><br>{hr_max} bpm
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
-    ftp = st.number_input(
-        "FTP (W)",
-        min_value=50,
-        max_value=500,
-        value=160,
-        step=1
-    )
-
-    hr_max = st.number_input(
-        "FC max",
-        min_value=100,
-        max_value=230,
-        value=200,
-        step=1
-    )
+    st.caption("Dati sincronizzati automaticamente da Intervals.icu.")
 
     goal = st.text_input(
         "Obiettivo",
@@ -1734,6 +1818,7 @@ if page == "Dashboard":
         refresh_events()
         refresh_wellness()
         refresh_activities()
+        refresh_athlete_profile()
         st.rerun()
 
     st.subheader("🏋️ Prossimo allenamento")
@@ -1905,17 +1990,72 @@ if page == "Dashboard":
         )
 
     if coach_history:
-        chart_data = {
-            "Fitness": [round(item["ctl"], 1) for item in coach_history],
-            "Fatigue": [round(item["atl"], 1) for item in coach_history],
-        }
-        st.line_chart(chart_data, height=240)
+        st.markdown('<div class="dashboard-chart-card">', unsafe_allow_html=True)
+        st.markdown("### 📈 Andamento Fitness e Fatigue")
 
-    st.caption(
-        "Fitness e Fatigue sono stime del Coach basate sul carico degli allenamenti "
-        "disponibili; quando Intervals.icu fornisce già il training load, viene usato "
-        "come riferimento."
-    )
+        chart_range = st.selectbox(
+            "Periodo",
+            [7, 14, 30],
+            format_func=lambda x: f"Ultimi {x} giorni",
+            index=1,
+            key="dashboard_chart_range"
+        )
+
+        history_to_show = coach_history[-chart_range:]
+        chart_data = {
+            "Data": [item["date"].strftime("%d/%m") for item in history_to_show],
+            "Fitness": [round(item["ctl"], 1) for item in history_to_show],
+            "Fatigue": [round(item["atl"], 1) for item in history_to_show],
+        }
+
+        import plotly.graph_objects as go
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=chart_data["Data"],
+                y=chart_data["Fitness"],
+                mode="lines",
+                name="Fitness",
+                line=dict(width=3),
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=chart_data["Data"],
+                y=chart_data["Fatigue"],
+                mode="lines",
+                name="Fatigue",
+                line=dict(width=3),
+            )
+        )
+        fig.update_layout(
+            height=280,
+            margin=dict(l=10, r=10, t=10, b=10),
+            hovermode=False,
+            dragmode=False,
+            showlegend=True,
+            legend=dict(orientation="h", y=1.08, x=0),
+            xaxis=dict(fixedrange=True, title=None),
+            yaxis=dict(fixedrange=True, title=None),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
+        st.plotly_chart(
+            fig,
+            use_container_width=True,
+            config={
+                "staticPlot": True,
+                "displayModeBar": False,
+                "displaylogo": False,
+            },
+        )
+
+        st.caption(
+            "Grafico non trascinabile: puoi solo cambiare il periodo tra 7, 14 e 30 giorni. "
+            "Fitness e Fatigue sono stime del Coach basate sul carico disponibile."
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
 
     st.divider()
 
@@ -2058,14 +2198,15 @@ elif page == "Calendario":
         }
         .calendar-day {
             min-height:125px;
-            border:1px solid #e5e7eb;
-            border-radius:10px;
-            padding:7px;
-            background:#fff;
+            border:1px solid #dbe3ee;
+            border-radius:14px;
+            padding:8px;
+            background:linear-gradient(145deg,#ffffff 0%,#f5f8fc 100%);
+            box-shadow:0 4px 12px rgba(30,41,59,.045);
         }
         .calendar-day.outside {
-            background:#f9fafb;
-            opacity:.62;
+            background:#e9eef5;
+            opacity:.55;
         }
         .calendar-number {
             font-weight:700;
@@ -2126,6 +2267,8 @@ elif page == "Calendario":
         """,
         unsafe_allow_html=True
     )
+
+    st.markdown("<div class='calendar-shell'>", unsafe_allow_html=True)
 
     headers = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
     header_html = (
@@ -2207,6 +2350,7 @@ elif page == "Calendario":
         """,
         unsafe_allow_html=True
     )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 # =========================
@@ -2341,6 +2485,7 @@ elif page == "Profilo":
     )
 
     st.subheader("Dati atleta")
+    st.caption("Questi valori vengono letti automaticamente da Intervals.icu e non sono modificabili qui.")
 
     col1, col2 = st.columns(2)
 
@@ -2367,6 +2512,10 @@ elif page == "Profilo":
         st.write(
             f"**Obiettivo:** {goal}"
         )
+
+    if st.button("🔄 Sincronizza dati atleta", key="sync_athlete_profile"):
+        refresh_athlete_profile()
+        st.rerun()
 
     st.divider()
 
